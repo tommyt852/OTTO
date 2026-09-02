@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Otto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Otto</h1>
+    <p class="note">Overtime and time-off recording. Nothing is kept when this tab closes — export the JSON files to save.</p>
+    <nav>
+      <button type="button" data-view="records" aria-current="page">Records</button>
+      <button type="button" data-view="staff">Manage staff</button>
+      <button type="button" data-view="report">Monthly report</button>
+    </nav>
+    <div class="file-bar">
+      <button type="button" id="export-records">Export records</button>
+      <button type="button" id="export-staff">Export staff</button>
+      <label class="file-label">Import records <input type="file" id="import-records" accept=".json,application/json"></label>
+      <label class="file-label">Import staff <input type="file" id="import-staff" accept=".json,application/json"></label>
+    </div>
+  </header>
+
+  <p id="banner" hidden role="status"></p>
+
+  <main>
+    <section id="view-records" class="view" data-view="records">
+      <h2>Records</h2>
+      <form id="record-form">
+        <input type="hidden" id="record-id" value="">
+        <div class="fields">
+          <label>Type
+            <select id="record-type">
+              <option value="OT">OT</option>
+              <option value="TO">TO</option>
+            </select>
+          </label>
+          <label>Staff name
+            <input type="text" id="record-staff" list="staff-name-options" autocomplete="off" required>
+          </label>
+          <label>Start date
+            <span class="date-combo">
+              <input type="text" id="record-start-date" class="date-input" placeholder="DD/MM/YYYY" required>
+              <input type="date" id="record-start-picker" class="date-picker" aria-label="Pick start date">
+            </span>
+          </label>
+          <label>Start time
+            <input type="time" id="record-start-time" step="60" required>
+          </label>
+          <label>End date
+            <span class="date-combo">
+              <input type="text" id="record-end-date" class="date-input" placeholder="DD/MM/YYYY" required>
+              <input type="date" id="record-end-picker" class="date-picker" aria-label="Pick end date">
+            </span>
+          </label>
+          <label>End time
+            <input type="time" id="record-end-time" step="60" required>
+          </label>
+          <label class="wide">Reason
+            <input type="text" id="record-reason" required>
+          </label>
+        </div>
+        <p class="hint">Dates are DD/MM/YYYY. Type them or use the calendar. End date defaults to the start date. Staff can be chosen from the list or typed if new.</p>
+        <p class="hours-live">Hours (main): <span id="record-hours">0.00</span></p>
+        <div id="colleagues-block">
+          <h3>Colleagues</h3>
+          <p class="hint">OT only. New rows copy the main start and end. Times can be changed per person.</p>
+          <div id="colleague-rows"></div>
+          <button type="button" id="add-colleague">Add colleague</button>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="record-save">Save</button>
+          <button type="button" id="record-cancel">Cancel</button>
+        </div>
+      </form>
+      <h3>Saved applications</h3>
+      <div id="record-list"></div>
+    </section>
+
+    <section id="view-staff" class="view" data-view="staff" hidden>
+      <h2>Manage staff</h2>
+      <form id="staff-form">
+        <input type="hidden" id="staff-original-name" value="">
+        <div class="fields">
+          <label>Name
+            <input type="text" id="staff-name" autocomplete="off" required>
+          </label>
+          <label>Opening balance (hours)
+            <input type="number" id="staff-opening" step="0.01" value="0.00" required>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="staff-active" checked>
+            Active
+          </label>
+        </div>
+        <div class="writeoff-block">
+          <h3>Write-off months</h3>
+          <p class="hint">Closing balance is written off in these months (contract renewal).</p>
+          <ul id="writeoff-list"></ul>
+          <div class="inline">
+            <label>Add month
+              <input type="month" id="writeoff-month">
+            </label>
+            <button type="button" id="add-writeoff">Add</button>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="staff-save">Save</button>
+          <button type="button" id="staff-cancel">Cancel</button>
+        </div>
+      </form>
+      <h3>Staff</h3>
+      <div id="staff-list"></div>
+    </section>
+
+    <section id="view-report" class="view" data-view="report" hidden>
+      <h2>Monthly report</h2>
+      <form id="report-form">
+        <div class="fields">
+          <label>Staff
+            <select id="report-staff"></select>
+          </label>
+          <label>Month
+            <input type="month" id="report-month" required>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">Show report</button>
+        </div>
+      </form>
+      <div id="report-result"></div>
+    </section>
+  </main>
+
+  <datalist id="staff-name-options"></datalist>
+
+  <template id="colleague-row-template">
+    <div class="colleague-row">
+      <label>Name
+        <input type="text" class="col-name" list="staff-name-options" autocomplete="off">
+      </label>
+      <label>Start date
+        <span class="date-combo">
+          <input type="text" class="col-start-date date-input" placeholder="DD/MM/YYYY">
+          <input type="date" class="col-start-picker date-picker" aria-label="Pick start date">
+        </span>
+      </label>
+      <label>Start time
+        <input type="time" class="col-start-time" step="60">
+      </label>
+      <label>End date
+        <span class="date-combo">
+          <input type="text" class="col-end-date date-input" placeholder="DD/MM/YYYY">
+          <input type="date" class="col-end-picker date-picker" aria-label="Pick end date">
+        </span>
+      </label>
+      <label>End time
+        <input type="time" class="col-end-time" step="60">
+      </label>
+      <p class="hours-live">Hours: <span class="col-hours">0.00</span></p>
+      <button type="button" class="remove-colleague">Remove</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
