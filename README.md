@@ -13,7 +13,7 @@ The user receives applications by email and types them into OTTO by hand. OTTO d
 
 ## Screens
 
-1. **Records** — create, edit, and delete OT/TO applications.
+1. **Records** — create, edit, and delete OT/TO applications. The list can be filtered by type, staff, and month, and sorted by date ascending or descending.
 2. **Manage staff** — staff name, first opening balance, write-off month(s), active / deactivated.
 3. **Monthly report** — per active staff member, per calendar month.
 
@@ -61,7 +61,7 @@ If the range crosses more than one month boundary, each month gets its own slice
 
 ## Staff
 
-Staff names are chosen from the list or typed on a record when the person does not exist yet. Staff details live in a **separate** JSON file.
+Staff names are chosen from the list or typed on a record when the person does not exist yet. Staff details are stored in the same JSON data file as applications.
 
 | Field | Meaning |
 | --- | --- |
@@ -115,14 +115,14 @@ Ledger walk:
 
 - While the tab is open, data lives in memory as JSON objects.
 - **Closing the tab discards memory.** Nothing is kept in the browser.
-- Safety is files: **export** to save, **import** to restore.
-- **Two separate `.json` files** — records and staff. Not one combined file.
+- Safety is a file: **Export data** to save, **Import data** to restore.
+- **One `.json` file** holds both applications and staff (`data.json`).
 
-Typical flow: import both files → work → export both files.
+Typical flow: import data → work → export data.
 
-## File formats
+## File format
 
-### Records file (`records.json`)
+### Data file (`data.json`)
 
 ```json
 {
@@ -146,19 +146,7 @@ Typical flow: import both files → work → export both files.
         }
       ]
     }
-  ]
-}
-```
-
-- `type` is `"OT"` or `"TO"`.
-- `colleagues` is only used for OT. TO uses `[]` or omits the field.
-- Dates `DD/MM/YYYY`, times `HH:mm` (24-hour).
-- `id` uniquely identifies the application for edit/delete.
-
-### Staff file (`staff.json`)
-
-```json
-{
+  ],
   "staff": [
     {
       "name": "Alice",
@@ -170,6 +158,10 @@ Typical flow: import both files → work → export both files.
 }
 ```
 
+- `type` is `"OT"` or `"TO"`.
+- `colleagues` is only used for OT. TO uses `[]` or omits the field.
+- Dates `DD/MM/YYYY`, times `HH:mm` (24-hour).
+- `id` uniquely identifies the application for edit/delete.
 - `openingBalance` is a number stored at two decimal places.
 - `writeOffMonths` entries are `"YYYY-MM"`.
 - `active` is `true` or `false`.
@@ -187,7 +179,7 @@ Typical flow: import both files → work → export both files.
 - Write-off months must be valid `YYYY-MM` values, no duplicates per staff.
 - Staff names are unique (trim). Two active/deactivated people cannot share the same name.
 - Import rejects invalid JSON and objects that do not match the shapes above. A failed import must not replace in-memory data.
-- Export downloads the current in-memory records or staff object as a `.json` file.
+- Export downloads the current in-memory applications and staff as one `.json` file.
 
 ## Out of scope (for now)
 

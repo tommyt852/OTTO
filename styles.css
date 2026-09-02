@@ -248,10 +248,15 @@ button[type="submit"]:hover,
 .filter-bar {
   gap: 0.7rem 1rem;
   margin-bottom: 0.9rem;
+  align-items: end;
 }
 
 .filter-bar label {
-  min-width: 11rem;
+  min-width: 9.5rem;
+}
+
+#record-filter-count {
+  margin: -0.35rem 0 0.55rem;
 }
 
 .fields {

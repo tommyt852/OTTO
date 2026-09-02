@@ -25,12 +25,9 @@
       <button type="button" data-view="report">Report</button>
     </nav>
     <div class="file-bar">
-      <button type="button" id="export-records">Export records</button>
-      <button type="button" id="import-records-btn">Import records</button>
-      <button type="button" id="export-staff">Export staff</button>
-      <button type="button" id="import-staff-btn">Import staff</button>
-      <input type="file" id="import-records" class="file-input" accept=".json,application/json">
-      <input type="file" id="import-staff" class="file-input" accept=".json,application/json">
+      <button type="button" id="import-data-btn">Import data</button>
+      <button type="button" id="export-data">Export data</button>
+      <input type="file" id="import-data" class="file-input" accept=".json,application/json">
     </div>
   </header>
 
@@ -91,6 +88,31 @@
           <button type="button" id="record-cancel">Cancel</button>
         </div>
       </form>
+      <form id="record-filters" class="filter-bar">
+        <label>Type
+          <select id="filter-type">
+            <option value="">All</option>
+            <option value="OT">OT</option>
+            <option value="TO">TO</option>
+          </select>
+        </label>
+        <label>Staff
+          <select id="filter-staff">
+            <option value="">All</option>
+          </select>
+        </label>
+        <label>Month
+          <input type="month" id="filter-month">
+        </label>
+        <label>Sort
+          <select id="filter-sort">
+            <option value="desc">Date descending</option>
+            <option value="asc">Date ascending</option>
+          </select>
+        </label>
+        <button type="button" id="filter-clear">Clear filters</button>
+      </form>
+      <p id="record-filter-count" class="hint"></p>
       <div id="record-list"></div>
     </section>
 

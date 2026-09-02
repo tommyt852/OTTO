@@ -131,22 +131,20 @@ Build **M1 → M7** in order. Do not start a milestone until the previous one me
 
 ## M5 — Import / export
 
-**Goal.** The two JSON files are the only way to keep data after the tab closes.
+**Goal.** One JSON file is the only way to keep data after the tab closes.
 
 **Build**
 
-- Export records → download `records.json` (`{ "applications": [ ... ] }`).
-- Export staff → download `staff.json` (`{ "staff": [ ... ] }`).
-- Import records from a `.json` file; import staff from a `.json` file; two separate actions.
+- Export data → download `data.json` (`{ "applications": [ ... ], "staff": [ ... ] }`).
+- Import data from that `.json` file.
 - Parse and shape-check against README. On any failure, show an error and **do not** replace in-memory data.
-- Successful import replaces only that side (records import does not wipe staff, and the reverse).
+- Successful import replaces applications and staff together.
 - After import, lists and forms show the loaded data.
 
 **Done when**
 
-- Export → close tab → reopen → import both files restores applications and staff.
+- Export → close tab → reopen → import restores applications and staff.
 - Broken JSON or a missing `applications` / `staff` array leaves the previous memory intact.
-- Records and staff never download as a single combined file.
 
 ---
 
@@ -190,7 +188,7 @@ Build **M1 → M7** in order. Do not start a milestone until the previous one me
 - Unique staff names; unique write-off months per staff; valid `YYYY-MM`.
 - Main person not also a colleague; no duplicate colleagues on one OT.
 - Same person cannot have overlapping OT and TO (create, edit, import). End touching start is allowed.
-- Month-crossing clip is report-only; `records.json` still has one application.
+- Month-crossing clip is report-only; the stored application stays one record.
 - Failed import does not clobber memory.
 - Tab close still loses unsaved memory.
 - No extra screens, no `localStorage`, no mailbox features.
@@ -199,13 +197,13 @@ Build **M1 → M7** in order. Do not start a milestone until the previous one me
 
 - The M6 fixture still passes.
 - A TO spanning two months reports as two slices, one stored record.
-- A bad staff import (for example `{ "staff": "nope" }`) is rejected and staff in memory is unchanged.
+- A bad data import (for example `{ "staff": "nope" }`) is rejected and memory is unchanged.
 - README and this file still match what the app does. Update the docs if a small behaviour had to be clarified; do not silently add features.
 
 ---
 
 ## After M7
 
-The app is usable: enter mail-based OT/TO, manage staff, export two files, import them next session, run monthly reports.
+The app is usable: enter mail-based OT/TO, manage staff, export data, import it next session, run monthly reports.
 
 Further work is out of scope until the design says so (print, extra screens, browser save, mail import, and the rest of the README out-of-scope list).

@@ -38,6 +38,13 @@
     recordCancel: document.getElementById("record-cancel"),
     recordFormTitle: document.getElementById("record-form-title"),
     recordList: document.getElementById("record-list"),
+    recordFilters: document.getElementById("record-filters"),
+    filterType: document.getElementById("filter-type"),
+    filterStaff: document.getElementById("filter-staff"),
+    filterMonth: document.getElementById("filter-month"),
+    filterSort: document.getElementById("filter-sort"),
+    filterClear: document.getElementById("filter-clear"),
+    recordFilterCount: document.getElementById("record-filter-count"),
     staffForm: document.getElementById("staff-form"),
     staffNew: document.getElementById("staff-new"),
     staffFormTitle: document.getElementById("staff-form-title"),
@@ -54,12 +61,9 @@
     reportStaff: document.getElementById("report-staff"),
     reportMonth: document.getElementById("report-month"),
     reportResult: document.getElementById("report-result"),
-    exportRecords: document.getElementById("export-records"),
-    exportStaff: document.getElementById("export-staff"),
-    importRecords: document.getElementById("import-records"),
-    importStaff: document.getElementById("import-staff"),
-    importRecordsBtn: document.getElementById("import-records-btn"),
-    importStaffBtn: document.getElementById("import-staff-btn"),
+    exportData: document.getElementById("export-data"),
+    importData: document.getElementById("import-data"),
+    importDataBtn: document.getElementById("import-data-btn"),
     staffNameOptions: document.getElementById("staff-name-options"),
     pageZoomOut: document.getElementById("page-zoom-out"),
     pageZoomIn: document.getElementById("page-zoom-in"),
@@ -724,6 +728,17 @@
     return { staff: staff };
   }
 
+  function parseDataPayload(data) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return { error: "Data file must be an object." };
+    }
+    const records = parseRecordsPayload(data);
+    if (records.error) return records;
+    const staff = parseStaffPayload(data);
+    if (staff.error) return staff;
+    return { applications: records.applications, staff: staff.staff };
+  }
+
   function downloadJson(filename, obj) {
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -977,18 +992,87 @@
     showStaffEditor("Edit staff");
   }
 
+  function appIncludesStaff(app, name) {
+    if (app.staffName === name) return true;
+    return (app.colleagues || []).some(function (c) {
+      return c.staffName === name;
+    });
+  }
+
+  function appTouchesMonth(app, yyyyMm) {
+    if (clipIntervalToMonth(app.startDate, app.startTime, app.endDate, app.endTime, yyyyMm)) {
+      return true;
+    }
+    if (app.type !== "OT") return false;
+    return (app.colleagues || []).some(function (c) {
+      return !!clipIntervalToMonth(c.startDate, c.startTime, c.endDate, c.endTime, yyyyMm);
+    });
+  }
+
+  function filteredApplications() {
+    const type = el.filterType.value;
+    const staff = el.filterStaff.value;
+    const month = el.filterMonth.value;
+    const sort = el.filterSort.value;
+    const list = state.applications.filter(function (app) {
+      if (type && app.type !== type) return false;
+      if (staff && !appIncludesStaff(app, staff)) return false;
+      if (month && isValidMonth(month) && !appTouchesMonth(app, month)) return false;
+      return true;
+    });
+    list.sort(function (a, b) {
+      const diff =
+        parseDateTime(a.startDate, a.startTime) - parseDateTime(b.startDate, b.startTime);
+      return sort === "asc" ? diff : -diff;
+    });
+    return list;
+  }
+
+  function renderRecordFilterStaff() {
+    const current = el.filterStaff.value;
+    const names = {};
+    state.staff.forEach(function (s) {
+      names[s.name] = true;
+    });
+    state.applications.forEach(function (app) {
+      names[app.staffName] = true;
+      (app.colleagues || []).forEach(function (c) {
+        if (c.staffName) names[c.staffName] = true;
+      });
+    });
+    const sorted = Object.keys(names).sort(function (a, b) {
+      return a.localeCompare(b);
+    });
+    el.filterStaff.innerHTML =
+      "<option value=\"\">All</option>" +
+      sorted
+        .map(function (name) {
+          return "<option value=\"" + escapeHtml(name) + "\">" + escapeHtml(name) + "</option>";
+        })
+        .join("");
+    if (names[current]) el.filterStaff.value = current;
+  }
+
   function renderRecords() {
+    renderRecordFilterStaff();
     if (!state.applications.length) {
+      el.recordFilterCount.textContent = "";
       el.recordList.innerHTML = "<p class=\"empty\">No applications yet.</p>";
       return;
     }
-    const rows = state.applications
-      .slice()
-      .sort(function (a, b) {
-        return (
-          parseDateTime(b.startDate, b.startTime) - parseDateTime(a.startDate, a.startTime)
-        );
-      })
+    const list = filteredApplications();
+    const total = state.applications.length;
+    if (list.length === total) {
+      el.recordFilterCount.textContent = total + " application" + (total === 1 ? "" : "s");
+    } else {
+      el.recordFilterCount.textContent =
+        list.length + " of " + total + " applications";
+    }
+    if (!list.length) {
+      el.recordList.innerHTML = "<p class=\"empty\">No applications match these filters.</p>";
+      return;
+    }
+    const rows = list
       .map(function (app) {
         const hours = intervalHours(app.startDate, app.startTime, app.endDate, app.endTime);
         const colNames = (app.colleagues || [])
@@ -996,9 +1080,9 @@
             return c.staffName;
           })
           .filter(Boolean);
-        const reasonExtra = colNames.length
-          ? "<div class=\"muted\">with " + escapeHtml(colNames.join(", ")) + "</div>"
-          : "";
+        const withCell = colNames.length
+          ? escapeHtml(colNames.join(", "))
+          : "<span class=\"muted\">—</span>";
         const badgeClass = app.type === "OT" ? "badge-ot" : "badge-to";
         return (
           "<tr>" +
@@ -1010,6 +1094,9 @@
           "<td>" +
           escapeHtml(app.staffName) +
           "</td>" +
+          "<td>" +
+          withCell +
+          "</td>" +
           "<td class=\"period\">" +
           escapeHtml(app.startDate + " " + app.startTime) +
           "<div class=\"muted\">" +
@@ -1020,7 +1107,6 @@
           "</td>" +
           "<td>" +
           escapeHtml(app.reason) +
-          reasonExtra +
           "</td>" +
           "<td class=\"row-actions\">" +
           "<button type=\"button\" data-edit-record=\"" +
@@ -1036,7 +1122,7 @@
       .join("");
     el.recordList.innerHTML =
       "<div class=\"table-wrap\"><table><thead><tr>" +
-      "<th>Type</th><th>Staff</th><th>Period</th><th class=\"num\">Hours</th><th>Reason</th><th></th>" +
+      "<th>Type</th><th>Staff</th><th>With</th><th>Period</th><th class=\"num\">Hours</th><th>Reason</th><th></th>" +
       "</tr></thead><tbody>" +
       rows +
       "</tbody></table></div>";
@@ -1307,6 +1393,20 @@
     addColleagueRow();
   });
 
+  el.recordFilters.addEventListener("submit", function (event) {
+    event.preventDefault();
+  });
+  el.recordFilters.addEventListener("change", function () {
+    renderRecords();
+  });
+  el.filterClear.addEventListener("click", function () {
+    el.filterType.value = "";
+    el.filterStaff.value = "";
+    el.filterMonth.value = "";
+    el.filterSort.value = "desc";
+    renderRecords();
+  });
+
   el.recordNew.addEventListener("click", function () {
     clearBanner();
     resetRecordForm();
@@ -1421,58 +1521,41 @@
     renderReport(report);
   });
 
-  el.importRecordsBtn.addEventListener("click", function () {
-    el.importRecords.click();
-  });
-  el.importStaffBtn.addEventListener("click", function () {
-    el.importStaff.click();
+  el.importDataBtn.addEventListener("click", function () {
+    el.importData.click();
   });
 
-  el.exportRecords.addEventListener("click", function () {
-    downloadJson("records.json", { applications: state.applications });
-    showBanner("Records file downloaded.", "ok");
+  el.exportData.addEventListener("click", function () {
+    downloadJson("data.json", {
+      applications: state.applications,
+      staff: state.staff,
+    });
+    showBanner("Data file downloaded.", "ok");
   });
 
-  el.exportStaff.addEventListener("click", function () {
-    downloadJson("staff.json", { staff: state.staff });
-    showBanner("Staff file downloaded.", "ok");
-  });
-
-  el.importRecords.addEventListener("change", function () {
-    const file = el.importRecords.files[0];
-    el.importRecords.value = "";
+  el.importData.addEventListener("change", function () {
+    const file = el.importData.files[0];
+    el.importData.value = "";
     readJsonFile(file, function (data) {
-      const parsed = parseRecordsPayload(data);
+      const parsed = parseDataPayload(data);
       if (parsed.error) {
-        showBanner("Import records failed: " + parsed.error, "err");
+        showBanner("Import failed: " + parsed.error, "err");
         return;
       }
       state.applications = parsed.applications;
+      state.staff = parsed.staff;
       parsed.applications.forEach(function (app) {
         applicationNames(app).forEach(function (name) {
           if (!findStaff(name)) ensureStaff(name);
         });
       });
-      refresh();
-      el.reportResult.innerHTML = "";
-      showBanner("Records imported.", "ok");
-    });
-  });
-
-  el.importStaff.addEventListener("change", function () {
-    const file = el.importStaff.files[0];
-    el.importStaff.value = "";
-    readJsonFile(file, function (data) {
-      const parsed = parseStaffPayload(data);
-      if (parsed.error) {
-        showBanner("Import staff failed: " + parsed.error, "err");
-        return;
-      }
-      state.staff = parsed.staff;
+      resetRecordForm();
+      hideRecordEditor();
       resetStaffForm();
+      hideStaffEditor();
       refresh();
-      el.reportResult.innerHTML = "";
-      showBanner("Staff imported.", "ok");
+      el.reportResult.innerHTML = "<p class=\"empty\">Choose an active staff member and a month.</p>";
+      showBanner("Data imported.", "ok");
     });
   });
 
