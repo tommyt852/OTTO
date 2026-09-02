@@ -1,6 +1,12 @@
 (function () {
   "use strict";
 
+  // Page size on load, in percent (70–200).
+  var PAGE_ZOOM_DEFAULT = 150;
+  var PAGE_ZOOM_MIN = 70;
+  var PAGE_ZOOM_MAX = 200;
+  var PAGE_ZOOM_STEP = 10;
+
   const state = {
     applications: [],
     staff: [],
@@ -28,9 +34,13 @@
     colleagueRows: document.getElementById("colleague-rows"),
     colleagueTemplate: document.getElementById("colleague-row-template"),
     addColleague: document.getElementById("add-colleague"),
+    recordNew: document.getElementById("record-new"),
     recordCancel: document.getElementById("record-cancel"),
+    recordFormTitle: document.getElementById("record-form-title"),
     recordList: document.getElementById("record-list"),
     staffForm: document.getElementById("staff-form"),
+    staffNew: document.getElementById("staff-new"),
+    staffFormTitle: document.getElementById("staff-form-title"),
     staffOriginalName: document.getElementById("staff-original-name"),
     staffName: document.getElementById("staff-name"),
     staffOpening: document.getElementById("staff-opening"),
@@ -48,7 +58,13 @@
     exportStaff: document.getElementById("export-staff"),
     importRecords: document.getElementById("import-records"),
     importStaff: document.getElementById("import-staff"),
+    importRecordsBtn: document.getElementById("import-records-btn"),
+    importStaffBtn: document.getElementById("import-staff-btn"),
     staffNameOptions: document.getElementById("staff-name-options"),
+    pageZoomOut: document.getElementById("page-zoom-out"),
+    pageZoomIn: document.getElementById("page-zoom-in"),
+    pageZoomReset: document.getElementById("page-zoom-reset"),
+    page: document.getElementById("page"),
   };
 
   function round2(n) {
@@ -866,6 +882,16 @@
     el.colleaguesBlock.hidden = !isOt;
   }
 
+  function showRecordEditor(title) {
+    el.recordFormTitle.textContent = title;
+    el.recordForm.hidden = false;
+    el.recordForm.scrollIntoView({ block: "nearest" });
+  }
+
+  function hideRecordEditor() {
+    el.recordForm.hidden = true;
+  }
+
   function resetRecordForm() {
     el.recordForm.reset();
     el.recordId.value = "";
@@ -874,6 +900,7 @@
     el.recordStartDate.dataset.lastStart = "";
     setDateCombo(el.recordStartDate, el.recordStartPicker, "");
     setDateCombo(el.recordEndDate, el.recordEndPicker, "");
+    el.recordFormTitle.textContent = "New application";
     toggleColleagueBlock();
     updateMainHours();
   }
@@ -894,24 +921,40 @@
     });
     toggleColleagueBlock();
     updateMainHours();
+    showRecordEditor("Edit application");
   }
 
   function renderWriteOffList() {
     if (!writeOffDraft.length) {
-      el.writeoffList.innerHTML = "<li class=\"muted\">None</li>";
+      el.writeoffList.innerHTML = "<p class=\"muted\">None</p>";
       return;
     }
-    el.writeoffList.innerHTML = writeOffDraft
-      .map(function (m, i) {
-        return (
-          "<li><span>" +
-          escapeHtml(m) +
-          "</span><button type=\"button\" data-remove-writeoff=\"" +
-          i +
-          "\">Remove</button></li>"
-        );
-      })
-      .join("");
+    el.writeoffList.innerHTML =
+      "<div class=\"chip-row\">" +
+      writeOffDraft
+        .map(function (m, i) {
+          return (
+            "<span class=\"chip\">" +
+            escapeHtml(m) +
+            "<button type=\"button\" data-remove-writeoff=\"" +
+            i +
+            "\" aria-label=\"Remove " +
+            escapeHtml(m) +
+            "\">×</button></span>"
+          );
+        })
+        .join("") +
+      "</div>";
+  }
+
+  function showStaffEditor(title) {
+    el.staffFormTitle.textContent = title;
+    el.staffForm.hidden = false;
+    el.staffForm.scrollIntoView({ block: "nearest" });
+  }
+
+  function hideStaffEditor() {
+    el.staffForm.hidden = true;
   }
 
   function resetStaffForm() {
@@ -920,6 +963,7 @@
     el.staffOpening.value = "0.00";
     el.staffActive.checked = true;
     writeOffDraft = [];
+    el.staffFormTitle.textContent = "Add staff";
     renderWriteOffList();
   }
 
@@ -930,6 +974,7 @@
     el.staffActive.checked = person.active;
     writeOffDraft = person.writeOffMonths.slice();
     renderWriteOffList();
+    showStaffEditor("Edit staff");
   }
 
   function renderRecords() {
@@ -946,39 +991,42 @@
       })
       .map(function (app) {
         const hours = intervalHours(app.startDate, app.startTime, app.endDate, app.endTime);
-        const colCount = (app.colleagues || []).length;
-        const colNote =
-          app.type === "OT" && colCount
-            ? colCount + " colleague" + (colCount === 1 ? "" : "s")
-            : "—";
+        const colNames = (app.colleagues || [])
+          .map(function (c) {
+            return c.staffName;
+          })
+          .filter(Boolean);
+        const reasonExtra = colNames.length
+          ? "<div class=\"muted\">with " + escapeHtml(colNames.join(", ")) + "</div>"
+          : "";
+        const badgeClass = app.type === "OT" ? "badge-ot" : "badge-to";
         return (
           "<tr>" +
-          "<td>" +
+          "<td><span class=\"badge " +
+          badgeClass +
+          "\">" +
           escapeHtml(app.type) +
-          "</td>" +
+          "</span></td>" +
           "<td>" +
           escapeHtml(app.staffName) +
           "</td>" +
-          "<td>" +
+          "<td class=\"period\">" +
           escapeHtml(app.startDate + " " + app.startTime) +
-          "</td>" +
-          "<td>" +
+          "<div class=\"muted\">" +
           escapeHtml(app.endDate + " " + app.endTime) +
-          "</td>" +
+          "</div></td>" +
           "<td class=\"num\">" +
           formatHours(hours) +
           "</td>" +
           "<td>" +
           escapeHtml(app.reason) +
-          "</td>" +
-          "<td>" +
-          escapeHtml(colNote) +
+          reasonExtra +
           "</td>" +
           "<td class=\"row-actions\">" +
           "<button type=\"button\" data-edit-record=\"" +
           escapeHtml(app.id) +
           "\">Edit</button>" +
-          "<button type=\"button\" data-delete-record=\"" +
+          "<button type=\"button\" class=\"btn-danger\" data-delete-record=\"" +
           escapeHtml(app.id) +
           "\">Delete</button>" +
           "</td>" +
@@ -987,11 +1035,11 @@
       })
       .join("");
     el.recordList.innerHTML =
-      "<table><thead><tr>" +
-      "<th>Type</th><th>Staff</th><th>Start</th><th>End</th><th class=\"num\">Hours</th><th>Reason</th><th>Colleagues</th><th></th>" +
+      "<div class=\"table-wrap\"><table><thead><tr>" +
+      "<th>Type</th><th>Staff</th><th>Period</th><th class=\"num\">Hours</th><th>Reason</th><th></th>" +
       "</tr></thead><tbody>" +
       rows +
-      "</tbody></table>";
+      "</tbody></table></div>";
   }
 
   function renderStaffOptions() {
@@ -1042,11 +1090,11 @@
       })
       .join("");
     el.staffList.innerHTML =
-      "<table><thead><tr>" +
+      "<div class=\"table-wrap\"><table><thead><tr>" +
       "<th>Name</th><th class=\"num\">Opening</th><th>Write-off months</th><th>Status</th><th></th>" +
       "</tr></thead><tbody>" +
       rows +
-      "</tbody></table>";
+      "</tbody></table></div>";
   }
 
   function renderReportStaffOptions() {
@@ -1077,15 +1125,18 @@
       ? report.lines
           .map(function (line) {
             const sign = line.type === "OT" ? "+" : "−";
+            const badgeClass = line.type === "OT" ? "badge-ot" : "badge-to";
             return (
               "<tr>" +
-              "<td>" +
+              "<td><span class=\"badge " +
+              badgeClass +
+              "\">" +
               escapeHtml(line.type) +
-              "</td>" +
-              "<td>" +
+              "</span></td>" +
+              "<td class=\"period\">" +
               escapeHtml(formatDate(line.start) + " " + formatTime(line.start)) +
               "</td>" +
-              "<td>" +
+              "<td class=\"period\">" +
               escapeHtml(formatDate(line.end) + " " + formatTime(line.end)) +
               "</td>" +
               "<td>" +
@@ -1105,37 +1156,35 @@
       : "<tr><td colspan=\"6\" class=\"muted\">No OT or TO in this month.</td></tr>";
 
     const writeOffRow = report.writeOff
-      ? "<p>Write-off (balance cleared): " + formatHours(report.writeOffAmount) + "</p>"
+      ? "<tr class=\"ledger-writeoff\"><td colspan=\"4\">Write-off (balance cleared)</td><td></td><td class=\"num\">" +
+        formatHours(report.closing) +
+        "</td></tr>"
       : "";
 
     el.reportResult.innerHTML =
-      "<div class=\"report-summary\">" +
+      "<div class=\"report-head\">" +
       "<p><strong>" +
       escapeHtml(report.person.name) +
-      "</strong> — " +
+      "</strong></p>" +
+      "<p class=\"muted\">" +
       escapeHtml(report.month) +
-      "</p>" +
-      "<p>Opening balance: " +
-      formatHours(report.opening) +
-      "</p>" +
-      "</div>" +
-      "<table><thead><tr>" +
-      "<th>Type</th><th>Start</th><th>End</th><th>Reason</th><th class=\"num\">Hours</th><th class=\"num\">Sub-balance</th>" +
-      "</tr></thead><tbody>" +
-      lineRows +
-      "</tbody></table>" +
-      "<div class=\"report-summary\">" +
-      "<p>OT total: +" +
+      " · OT +" +
       formatHours(report.ot) +
-      "</p>" +
-      "<p>TO total: −" +
+      " · TO −" +
       formatHours(report.to) +
       "</p>" +
+      "</div>" +
+      "<div class=\"table-wrap\"><table class=\"ledger\"><thead><tr>" +
+      "<th>Type</th><th>Start</th><th>End</th><th>Reason</th><th class=\"num\">Hours</th><th class=\"num\">Sub-balance</th>" +
+      "</tr></thead><tbody>" +
+      "<tr class=\"ledger-open\"><td colspan=\"4\">Opening balance</td><td></td><td class=\"num\">" +
+      formatHours(report.opening) +
+      "</td></tr>" +
+      lineRows +
       writeOffRow +
-      "<p><strong>Closing balance: " +
+      "</tbody><tfoot><tr class=\"ledger-close\"><td colspan=\"4\">Closing balance</td><td></td><td class=\"num\">" +
       formatHours(report.closing) +
-      "</strong></p>" +
-      "</div>";
+      "</td></tr></tfoot></table></div>";
   }
 
   function refresh() {
@@ -1189,6 +1238,7 @@
       state.applications[idx] = record;
     }
     resetRecordForm();
+    hideRecordEditor();
     refresh();
     showBanner(isNew ? "Application saved." : "Application updated.", "ok");
   }
@@ -1229,6 +1279,7 @@
     }
     sortStaff();
     resetStaffForm();
+    hideStaffEditor();
     refresh();
     el.reportResult.innerHTML = "";
     showBanner("Staff saved.", "ok");
@@ -1256,10 +1307,18 @@
     addColleagueRow();
   });
 
+  el.recordNew.addEventListener("click", function () {
+    clearBanner();
+    resetRecordForm();
+    showRecordEditor("New application");
+    el.recordStaff.focus();
+  });
+
   el.recordForm.addEventListener("submit", saveRecord);
   el.recordCancel.addEventListener("click", function () {
     clearBanner();
     resetRecordForm();
+    hideRecordEditor();
   });
 
   el.recordList.addEventListener("click", function (event) {
@@ -1283,7 +1342,10 @@
       state.applications = state.applications.filter(function (a) {
         return a.id !== deleteId;
       });
-      if (el.recordId.value === deleteId) resetRecordForm();
+      if (el.recordId.value === deleteId) {
+        resetRecordForm();
+        hideRecordEditor();
+      }
       refresh();
       showBanner("Application deleted.", "ok");
     }
@@ -1313,10 +1375,18 @@
     renderWriteOffList();
   });
 
+  el.staffNew.addEventListener("click", function () {
+    clearBanner();
+    resetStaffForm();
+    showStaffEditor("Add staff");
+    el.staffName.focus();
+  });
+
   el.staffForm.addEventListener("submit", saveStaff);
   el.staffCancel.addEventListener("click", function () {
     clearBanner();
     resetStaffForm();
+    hideStaffEditor();
   });
 
   el.staffList.addEventListener("click", function (event) {
@@ -1349,6 +1419,13 @@
       return;
     }
     renderReport(report);
+  });
+
+  el.importRecordsBtn.addEventListener("click", function () {
+    el.importRecords.click();
+  });
+  el.importStaffBtn.addEventListener("click", function () {
+    el.importStaff.click();
   });
 
   el.exportRecords.addEventListener("click", function () {
@@ -1399,10 +1476,34 @@
     });
   });
 
+  var pageZoom = PAGE_ZOOM_DEFAULT;
+
+  function applyPageZoom() {
+    document.documentElement.style.zoom = "";
+    el.page.style.zoom = pageZoom + "%";
+    el.pageZoomReset.textContent = pageZoom + "%";
+    el.pageZoomOut.disabled = pageZoom <= PAGE_ZOOM_MIN;
+    el.pageZoomIn.disabled = pageZoom >= PAGE_ZOOM_MAX;
+  }
+
+  el.pageZoomOut.addEventListener("click", function () {
+    pageZoom = Math.max(PAGE_ZOOM_MIN, pageZoom - PAGE_ZOOM_STEP);
+    applyPageZoom();
+  });
+  el.pageZoomIn.addEventListener("click", function () {
+    pageZoom = Math.min(PAGE_ZOOM_MAX, pageZoom + PAGE_ZOOM_STEP);
+    applyPageZoom();
+  });
+  el.pageZoomReset.addEventListener("click", function () {
+    pageZoom = PAGE_ZOOM_DEFAULT;
+    applyPageZoom();
+  });
+
   showView("records");
   toggleColleagueBlock();
   resetStaffForm();
   el.recordStartDate.dataset.lastStart = "";
   refresh();
   updateMainHours();
+  applyPageZoom();
 })();

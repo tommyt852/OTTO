@@ -1,4 +1,4 @@
-# Otto implementation
+# OTTO implementation
 
 Work follows `README.md`. This file is the development schedule: what to build, in what order, and when a slice is done.
 

@@ -3,23 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Otto</title>
+  <title>OTTO</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="size-bar">
+    <span class="size-caption">Size</span>
+    <button type="button" id="page-zoom-out" aria-label="Decrease page size">−</button>
+    <button type="button" id="page-zoom-reset" aria-label="Reset page size">100%</button>
+    <button type="button" id="page-zoom-in" aria-label="Increase page size">+</button>
+  </div>
+  <div id="page">
   <header>
-    <h1>Otto</h1>
-    <p class="note">Overtime and time-off recording. Nothing is kept when this tab closes — export the JSON files to save.</p>
+    <div class="brand">
+      <h1>OTTO</h1>
+      <p class="note">Data stays in this tab only. Export JSON to save.</p>
+    </div>
     <nav>
       <button type="button" data-view="records" aria-current="page">Records</button>
-      <button type="button" data-view="staff">Manage staff</button>
-      <button type="button" data-view="report">Monthly report</button>
+      <button type="button" data-view="staff">Staff</button>
+      <button type="button" data-view="report">Report</button>
     </nav>
     <div class="file-bar">
       <button type="button" id="export-records">Export records</button>
+      <button type="button" id="import-records-btn">Import records</button>
       <button type="button" id="export-staff">Export staff</button>
-      <label class="file-label">Import records <input type="file" id="import-records" accept=".json,application/json"></label>
-      <label class="file-label">Import staff <input type="file" id="import-staff" accept=".json,application/json"></label>
+      <button type="button" id="import-staff-btn">Import staff</button>
+      <input type="file" id="import-records" class="file-input" accept=".json,application/json">
+      <input type="file" id="import-staff" class="file-input" accept=".json,application/json">
     </div>
   </header>
 
@@ -27,8 +38,12 @@
 
   <main>
     <section id="view-records" class="view" data-view="records">
-      <h2>Records</h2>
-      <form id="record-form">
+      <div class="view-head">
+        <h2>Records</h2>
+        <button type="button" id="record-new">New application</button>
+      </div>
+      <form id="record-form" class="editor" hidden>
+        <h3 id="record-form-title">New application</h3>
         <input type="hidden" id="record-id" value="">
         <div class="fields">
           <label>Type
@@ -62,26 +77,30 @@
             <input type="text" id="record-reason" required>
           </label>
         </div>
-        <p class="hint">Dates are DD/MM/YYYY. Type them or use the calendar. End date defaults to the start date. Staff can be chosen from the list or typed if new.</p>
-        <p class="hours-live">Hours (main): <span id="record-hours">0.00</span></p>
+        <p class="hours-live">Hours (main): <strong id="record-hours">0.00</strong></p>
         <div id="colleagues-block">
-          <h3>Colleagues</h3>
-          <p class="hint">OT only. New rows copy the main start and end. Times can be changed per person.</p>
+          <div class="subhead">
+            <h3>Colleagues</h3>
+            <button type="button" id="add-colleague">Add colleague</button>
+          </div>
+          <p class="hint">OT only. New rows copy the main start and end.</p>
           <div id="colleague-rows"></div>
-          <button type="button" id="add-colleague">Add colleague</button>
         </div>
         <div class="form-actions">
           <button type="submit" id="record-save">Save</button>
           <button type="button" id="record-cancel">Cancel</button>
         </div>
       </form>
-      <h3>Saved applications</h3>
       <div id="record-list"></div>
     </section>
 
     <section id="view-staff" class="view" data-view="staff" hidden>
-      <h2>Manage staff</h2>
-      <form id="staff-form">
+      <div class="view-head">
+        <h2>Staff</h2>
+        <button type="button" id="staff-new">Add staff</button>
+      </div>
+      <form id="staff-form" class="editor" hidden>
+        <h3 id="staff-form-title">Add staff</h3>
         <input type="hidden" id="staff-original-name" value="">
         <div class="fields">
           <label>Name
@@ -98,7 +117,7 @@
         <div class="writeoff-block">
           <h3>Write-off months</h3>
           <p class="hint">Closing balance is written off in these months (contract renewal).</p>
-          <ul id="writeoff-list"></ul>
+          <div id="writeoff-list"></div>
           <div class="inline">
             <label>Add month
               <input type="month" id="writeoff-month">
@@ -111,26 +130,23 @@
           <button type="button" id="staff-cancel">Cancel</button>
         </div>
       </form>
-      <h3>Staff</h3>
       <div id="staff-list"></div>
     </section>
 
     <section id="view-report" class="view" data-view="report" hidden>
-      <h2>Monthly report</h2>
-      <form id="report-form">
-        <div class="fields">
-          <label>Staff
-            <select id="report-staff"></select>
-          </label>
-          <label>Month
-            <input type="month" id="report-month" required>
-          </label>
-        </div>
-        <div class="form-actions">
-          <button type="submit">Show report</button>
-        </div>
+      <div class="view-head">
+        <h2>Monthly report</h2>
+      </div>
+      <form id="report-form" class="filter-bar">
+        <label>Staff
+          <select id="report-staff"></select>
+        </label>
+        <label>Month
+          <input type="month" id="report-month" required>
+        </label>
+        <button type="submit">Show report</button>
       </form>
-      <div id="report-result"></div>
+      <div id="report-result"><p class="empty">Choose an active staff member and a month.</p></div>
     </section>
   </main>
 
@@ -138,31 +154,36 @@
 
   <template id="colleague-row-template">
     <div class="colleague-row">
-      <label>Name
-        <input type="text" class="col-name" list="staff-name-options" autocomplete="off">
-      </label>
-      <label>Start date
-        <span class="date-combo">
-          <input type="text" class="col-start-date date-input" placeholder="DD/MM/YYYY">
-          <input type="date" class="col-start-picker date-picker" aria-label="Pick start date">
-        </span>
-      </label>
-      <label>Start time
-        <input type="time" class="col-start-time" step="60">
-      </label>
-      <label>End date
-        <span class="date-combo">
-          <input type="text" class="col-end-date date-input" placeholder="DD/MM/YYYY">
-          <input type="date" class="col-end-picker date-picker" aria-label="Pick end date">
-        </span>
-      </label>
-      <label>End time
-        <input type="time" class="col-end-time" step="60">
-      </label>
-      <p class="hours-live">Hours: <span class="col-hours">0.00</span></p>
-      <button type="button" class="remove-colleague">Remove</button>
+      <div class="colleague-top">
+        <label>Name
+          <input type="text" class="col-name" list="staff-name-options" autocomplete="off">
+        </label>
+        <p class="hours-live">Hours: <strong class="col-hours">0.00</strong></p>
+        <button type="button" class="remove-colleague">Remove</button>
+      </div>
+      <div class="colleague-times">
+        <label>Start date
+          <span class="date-combo">
+            <input type="text" class="col-start-date date-input" placeholder="DD/MM/YYYY">
+            <input type="date" class="col-start-picker date-picker" aria-label="Pick start date">
+          </span>
+        </label>
+        <label>Start time
+          <input type="time" class="col-start-time" step="60">
+        </label>
+        <label>End date
+          <span class="date-combo">
+            <input type="text" class="col-end-date date-input" placeholder="DD/MM/YYYY">
+            <input type="date" class="col-end-picker date-picker" aria-label="Pick end date">
+          </span>
+        </label>
+        <label>End time
+          <input type="time" class="col-end-time" step="60">
+        </label>
+      </div>
     </div>
   </template>
+  </div>
 
   <script src="app.js"></script>
 </body>

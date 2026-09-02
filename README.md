@@ -1,8 +1,8 @@
-# Otto
+# OTTO
 
 Overtime (OT) and time-off (TO) recording for a single user.
 
-The user receives applications by email and types them into Otto by hand. Otto does not read mailboxes or import mail.
+The user receives applications by email and types them into OTTO by hand. OTTO does not read mailboxes or import mail.
 
 ## Constraints
 
