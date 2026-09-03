@@ -33,11 +33,9 @@ Each application is **one record**, even if it crosses a month or includes colle
 | Staff name | Yes | Main person. Choose from the staff list or type a new name. Must not be a deactivated staff name. |
 | Reason | Yes | Why the OT or TO exists |
 
-### OT colleagues
+### Colleagues
 
-TO is always one person. No colleagues.
-
-OT may include colleagues who joined the same overtime:
+OT and TO may include colleagues:
 
 - Chosen from the staff list or typed on the main person’s application if the name is new.
 - Each colleague has their own name and start/end date and time.
@@ -46,7 +44,9 @@ OT may include colleagues who joined the same overtime:
 - A colleague name must follow the same staff rules as the main name (list or type, not deactivated).
 - Adding or removing colleagues is allowed when creating or editing.
 
-The whole OT (main person + colleagues) is still **one application**. Delete removes all of it.
+On **TO** only, the main person and each colleague can exclude a **lunch slot**. Presets are defined in `app.js` (`LUNCH_PRESETS`, default `12:45`–`14:00` and `13:00`–`14:00`), or a custom start/end. JSON stores `{ "start": "12:45", "end": "14:00" }` (or omits lunch). Overlap with that window on each calendar day is subtracted from that person’s hours.
+
+The whole application (main person + colleagues) is still **one record**. Delete removes all of it.
 
 ### Month-crossing applications
 
@@ -187,6 +187,5 @@ Typical flow: import data → work → export data.
 - Login, multiple users, roles, approvals
 - Browser storage (localStorage, etc.)
 - Extra screens (print layout, settings, dashboards)
-- Multi-person TO
 - Splitting an application into multiple stored records
 - Backend or database

@@ -74,13 +74,27 @@
             <input type="text" id="record-reason" required>
           </label>
         </div>
+        <div id="lunch-wrap" class="lunch-fields" hidden>
+          <label>Lunch
+            <select id="record-lunch-preset">
+              <option value="">None</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label class="lunch-custom" hidden>Lunch start
+            <input type="time" id="record-lunch-start" step="60">
+          </label>
+          <label class="lunch-custom" hidden>Lunch end
+            <input type="time" id="record-lunch-end" step="60">
+          </label>
+        </div>
         <p class="hours-live">Hours (main): <strong id="record-hours">0.00</strong></p>
         <div id="colleagues-block">
           <div class="subhead">
             <h3>Colleagues</h3>
             <button type="button" id="add-colleague">Add colleague</button>
           </div>
-          <p class="hint">OT only. New rows copy the main start and end.</p>
+          <p class="hint" id="colleagues-hint">New rows copy the main start and end.</p>
           <div id="colleague-rows"></div>
         </div>
         <div class="form-actions">
@@ -182,6 +196,20 @@
         </label>
         <p class="hours-live">Hours: <strong class="col-hours">0.00</strong></p>
         <button type="button" class="remove-colleague">Remove</button>
+      </div>
+      <div class="lunch-fields col-lunch-wrap" hidden>
+        <label>Lunch
+          <select class="col-lunch-preset">
+            <option value="">None</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+        <label class="lunch-custom" hidden>Lunch start
+          <input type="time" class="col-lunch-start" step="60">
+        </label>
+        <label class="lunch-custom" hidden>Lunch end
+          <input type="time" class="col-lunch-end" step="60">
+        </label>
       </div>
       <div class="colleague-times">
         <label>Start date

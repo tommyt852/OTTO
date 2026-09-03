@@ -7,6 +7,12 @@
   var PAGE_ZOOM_MAX = 200;
   var PAGE_ZOOM_STEP = 10;
 
+  // Lunch slots offered on TO (plus Custom). Stored as { start, end } in JSON.
+  var LUNCH_PRESETS = [
+    { start: "12:45", end: "14:00" },
+    { start: "13:00", end: "14:00" },
+  ];
+
   const state = {
     applications: [],
     staff: [],
@@ -30,6 +36,11 @@
     recordEndTime: document.getElementById("record-end-time"),
     recordReason: document.getElementById("record-reason"),
     recordHours: document.getElementById("record-hours"),
+    lunchWrap: document.getElementById("lunch-wrap"),
+    recordLunchPreset: document.getElementById("record-lunch-preset"),
+    recordLunchStart: document.getElementById("record-lunch-start"),
+    recordLunchEnd: document.getElementById("record-lunch-end"),
+    colleaguesHint: document.getElementById("colleagues-hint"),
     colleaguesBlock: document.getElementById("colleagues-block"),
     colleagueRows: document.getElementById("colleague-rows"),
     colleagueTemplate: document.getElementById("colleague-row-template"),
@@ -182,17 +193,147 @@
     return round2((end.getTime() - start.getTime()) / 3600000);
   }
 
-  function intervalHours(date1, time1, date2, time2) {
+  function lunchKey(start, end) {
+    return normalizeTime(start) + "-" + normalizeTime(end);
+  }
+
+  function lunchPresetValue(slot) {
+    if (!slot) return "";
+    for (let i = 0; i < LUNCH_PRESETS.length; i += 1) {
+      if (lunchKey(LUNCH_PRESETS[i].start, LUNCH_PRESETS[i].end) === lunchKey(slot.start, slot.end)) {
+        return lunchKey(LUNCH_PRESETS[i].start, LUNCH_PRESETS[i].end);
+      }
+    }
+    return "custom";
+  }
+
+  function fillLunchPresetSelect(select) {
+    const current = select.value;
+    let html = "<option value=\"\">None</option>";
+    LUNCH_PRESETS.forEach(function (p) {
+      const value = lunchKey(p.start, p.end);
+      html +=
+        "<option value=\"" +
+        escapeHtml(value) +
+        "\">" +
+        escapeHtml(p.start + "–" + p.end) +
+        "</option>";
+    });
+    html += "<option value=\"custom\">Custom</option>";
+    select.innerHTML = html;
+    if (current) select.value = current;
+  }
+
+  function parseLunchSlot(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const start = normalizeTime(raw.start);
+    const end = normalizeTime(raw.end);
+    if (!isValidTime(start) || !isValidTime(end)) return null;
+    const s = parseDateTime("01/01/2000", start);
+    const e = parseDateTime("01/01/2000", end);
+    if (e <= s) return null;
+    return { start: start, end: end };
+  }
+
+  function lunchSelectionError(select, startInput, endInput, label) {
+    if (!select || !select.value) return null;
+    if (select.value === "custom" && (!startInput.value || !endInput.value)) {
+      return label + ": enter custom lunch start and end.";
+    }
+    if (!lunchFromControls(select, startInput, endInput)) {
+      return label + ": lunch end must be after start.";
+    }
+    return null;
+  }
+
+  function lunchFromControls(select, startInput, endInput) {
+    const value = select.value;
+    if (!value) return null;
+    if (value === "custom") {
+      return parseLunchSlot({
+        start: startInput.value,
+        end: endInput.value,
+      });
+    }
+    const parts = value.split("-");
+    if (parts.length !== 2) return null;
+    return parseLunchSlot({ start: parts[0], end: parts[1] });
+  }
+
+  function setLunchControls(select, startInput, endInput, wrapCustom, slot) {
+    fillLunchPresetSelect(select);
+    const value = lunchPresetValue(slot);
+    select.value = value;
+    if (value === "custom" && slot) {
+      startInput.value = slot.start;
+      endInput.value = slot.end;
+    } else if (value && value !== "custom") {
+      const parts = value.split("-");
+      startInput.value = parts[0];
+      endInput.value = parts[1];
+    } else {
+      startInput.value = "";
+      endInput.value = "";
+    }
+    const showCustom = value === "custom";
+    if (wrapCustom && wrapCustom.length) {
+      wrapCustom.forEach(function (node) {
+        node.hidden = !showCustom;
+      });
+    } else if (startInput && startInput.closest) {
+      const row = startInput.closest(".lunch-fields");
+      if (row) {
+        row.querySelectorAll(".lunch-custom").forEach(function (node) {
+          node.hidden = !showCustom;
+        });
+      }
+    }
+  }
+
+  function lunchOverlapHours(start, end, lunch) {
+    const slot = parseLunchSlot(lunch);
+    if (!slot) return 0;
+    const lsH = Number(slot.start.slice(0, 2));
+    const lsM = Number(slot.start.slice(3, 5));
+    const leH = Number(slot.end.slice(0, 2));
+    const leM = Number(slot.end.slice(3, 5));
+    let total = 0;
+    const day = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    while (day <= last) {
+      const ls = new Date(day.getFullYear(), day.getMonth(), day.getDate(), lsH, lsM, 0, 0);
+      const le = new Date(day.getFullYear(), day.getMonth(), day.getDate(), leH, leM, 0, 0);
+      if (le > ls) {
+        const from = start > ls ? start : ls;
+        const to = end < le ? end : le;
+        if (to > from) total = round2(total + hoursBetween(from, to));
+      }
+      day.setDate(day.getDate() + 1);
+    }
+    return total;
+  }
+
+  function netHours(start, end, lunch) {
+    let hours = hoursBetween(start, end);
+    const slot = parseLunchSlot(lunch);
+    if (slot) {
+      hours = round2(hours - lunchOverlapHours(start, end, slot));
+      if (hours < 0) hours = 0;
+    }
+    return hours;
+  }
+
+  function intervalHours(date1, time1, date2, time2, lunch) {
     if (!isValidDate(date1) || !isValidTime(time1) || !isValidDate(date2) || !isValidTime(time2)) {
       return null;
     }
     const start = parseDateTime(date1, time1);
     const end = parseDateTime(date2, time2);
     if (end <= start) return null;
-    return hoursBetween(start, end);
+    return netHours(start, end, lunch);
   }
 
-  function clipIntervalToMonth(date1, time1, date2, time2, yyyyMm) {
+  function clipIntervalToMonth(date1, time1, date2, time2, yyyyMm, lunch) {
     const start = parseDateTime(date1, time1);
     const end = parseDateTime(date2, time2);
     const fromBound = monthStart(yyyyMm);
@@ -200,10 +341,12 @@
     const from = start > fromBound ? start : fromBound;
     const to = end < toBound ? end : toBound;
     if (to <= from) return null;
+    const hours = netHours(from, to, lunch);
+    if (hours === 0) return null;
     return {
       start: from,
       end: to,
-      hours: hoursBetween(from, to),
+      hours: hours,
     };
   }
 
@@ -260,6 +403,11 @@
         startTime: normalizeTime(row.querySelector(".col-start-time").value),
         endDate: normalizeDate(row.querySelector(".col-end-date").value),
         endTime: normalizeTime(row.querySelector(".col-end-time").value),
+        lunch: lunchFromControls(
+          row.querySelector(".col-lunch-preset"),
+          row.querySelector(".col-lunch-start"),
+          row.querySelector(".col-lunch-end")
+        ),
       });
     });
     return rows;
@@ -302,34 +450,28 @@
       return "That staff member is deactivated and cannot be used here.";
     }
 
-    if (input.type === "TO") {
-      if (input.colleagues.length) {
-        return "Time-off cannot include colleagues.";
+    const seen = {};
+    seen[input.staffName] = true;
+    for (let i = 0; i < input.colleagues.length; i += 1) {
+      const col = input.colleagues[i];
+      const label = "Colleague " + (i + 1);
+      if (!col.staffName) {
+        return label + ": name is required.";
       }
-    } else {
-      const seen = {};
-      seen[input.staffName] = true;
-      for (let i = 0; i < input.colleagues.length; i += 1) {
-        const col = input.colleagues[i];
-        const label = "Colleague " + (i + 1);
-        if (!col.staffName) {
-          return label + ": name is required.";
-        }
-        if (seen[col.staffName]) {
-          return "The main person cannot also be a colleague, and colleague names must be unique.";
-        }
-        seen[col.staffName] = true;
-        const colErr = validateInterval(label, col.startDate, col.startTime, col.endDate, col.endTime);
-        if (colErr) return colErr;
-        const prevCol = previous
-          ? (previous.colleagues || []).find(function (c) {
-              return c.staffName === col.staffName;
-            })
-          : null;
-        const prevName = prevCol ? prevCol.staffName : "";
-        if (!nameAllowed(col.staffName, prevName, isNew)) {
-          return "That staff member is deactivated and cannot be used here.";
-        }
+      if (seen[col.staffName]) {
+        return "The main person cannot also be a colleague, and colleague names must be unique.";
+      }
+      seen[col.staffName] = true;
+      const colErr = validateInterval(label, col.startDate, col.startTime, col.endDate, col.endTime);
+      if (colErr) return colErr;
+      const prevCol = previous
+        ? (previous.colleagues || []).find(function (c) {
+            return c.staffName === col.staffName;
+          })
+        : null;
+      const prevName = prevCol ? prevCol.staffName : "";
+      if (!nameAllowed(col.staffName, prevName, isNew)) {
+        return "That staff member is deactivated and cannot be used here.";
       }
     }
     return findOtToOverlapError(input, previous ? previous.id : null);
@@ -401,16 +543,14 @@
       end: parseDateTime(app.endDate, app.endTime),
       reason: app.reason,
     });
-    if (app.type === "OT") {
-      (app.colleagues || []).forEach(function (c) {
-        fn(c.staffName, {
-          type: "OT",
-          start: parseDateTime(c.startDate, c.startTime),
-          end: parseDateTime(c.endDate, c.endTime),
-          reason: app.reason,
-        });
+    (app.colleagues || []).forEach(function (c) {
+      fn(c.staffName, {
+        type: app.type,
+        start: parseDateTime(c.startDate, c.startTime),
+        end: parseDateTime(c.endDate, c.endTime),
+        reason: app.reason,
       });
-    }
+    });
   }
 
   function collectSlotsByPerson(applications, skipId) {
@@ -469,6 +609,7 @@
 
   function personIntervals(app, personName) {
     const out = [];
+    const toLunch = app.type === "TO";
     if (app.staffName === personName) {
       out.push({
         type: app.type,
@@ -478,23 +619,23 @@
         endTime: app.endTime,
         reason: app.reason,
         applicationId: app.id,
+        lunch: toLunch ? app.lunch : null,
       });
     }
-    if (app.type === "OT") {
-      (app.colleagues || []).forEach(function (c) {
-        if (c.staffName === personName) {
-          out.push({
-            type: "OT",
-            startDate: c.startDate,
-            startTime: c.startTime,
-            endDate: c.endDate,
-            endTime: c.endTime,
-            reason: app.reason,
-            applicationId: app.id,
-          });
-        }
-      });
-    }
+    (app.colleagues || []).forEach(function (c) {
+      if (c.staffName === personName) {
+        out.push({
+          type: app.type,
+          startDate: c.startDate,
+          startTime: c.startTime,
+          endDate: c.endDate,
+          endTime: c.endTime,
+          reason: app.reason,
+          applicationId: app.id,
+          lunch: toLunch ? c.lunch : null,
+        });
+      }
+    });
     return out;
   }
 
@@ -504,7 +645,14 @@
     const lines = [];
     state.applications.forEach(function (app) {
       personIntervals(app, personName).forEach(function (iv) {
-        const clip = clipIntervalToMonth(iv.startDate, iv.startTime, iv.endDate, iv.endTime, yyyyMm);
+        const clip = clipIntervalToMonth(
+          iv.startDate,
+          iv.startTime,
+          iv.endDate,
+          iv.endTime,
+          yyyyMm,
+          iv.lunch
+        );
         if (!clip || clip.hours === 0) return;
         if (iv.type === "OT") ot = round2(ot + clip.hours);
         else to = round2(to + clip.hours);
@@ -615,7 +763,6 @@
     let colleagues = app.colleagues;
     if (colleagues == null) colleagues = [];
     if (!Array.isArray(colleagues)) return "colleagues must be an array.";
-    if (app.type === "TO" && colleagues.length) return "TO applications cannot have colleagues.";
     const seen = {};
     seen[app.staffName.trim()] = true;
     for (let i = 0; i < colleagues.length; i += 1) {
@@ -662,6 +809,7 @@
         endTime: normalizeTime(raw.endTime),
         staffName: raw.staffName.trim(),
         reason: raw.reason.trim(),
+        lunch: raw.type === "TO" ? parseLunchSlot(raw.lunch) : null,
         colleagues: (raw.colleagues || []).map(function (c) {
           return {
             staffName: c.staffName.trim(),
@@ -669,6 +817,7 @@
             startTime: normalizeTime(c.startTime),
             endDate: normalizeDate(c.endDate),
             endTime: normalizeTime(c.endTime),
+            lunch: raw.type === "TO" ? parseLunchSlot(c.lunch) : null,
           };
         }),
       });
@@ -777,22 +926,38 @@
     });
   }
 
+  function isToType() {
+    return el.recordType.value === "TO";
+  }
+
   function updateMainHours() {
+    const lunch = isToType()
+      ? lunchFromControls(el.recordLunchPreset, el.recordLunchStart, el.recordLunchEnd)
+      : null;
     const hours = intervalHours(
       el.recordStartDate.value,
       el.recordStartTime.value,
       el.recordEndDate.value,
-      el.recordEndTime.value
+      el.recordEndTime.value,
+      lunch
     );
     el.recordHours.textContent = hours == null ? "—" : formatHours(hours);
   }
 
   function updateColleagueHours(row) {
+    const lunch = isToType()
+      ? lunchFromControls(
+          row.querySelector(".col-lunch-preset"),
+          row.querySelector(".col-lunch-start"),
+          row.querySelector(".col-lunch-end")
+        )
+      : null;
     const hours = intervalHours(
       row.querySelector(".col-start-date").value,
       row.querySelector(".col-start-time").value,
       row.querySelector(".col-end-date").value,
-      row.querySelector(".col-end-time").value
+      row.querySelector(".col-end-time").value,
+      lunch
     );
     row.querySelector(".col-hours").textContent = hours == null ? "—" : formatHours(hours);
   }
@@ -867,6 +1032,9 @@
         if (input === startInput) defaultEndDate(startInput, endInput, endPicker);
         updateColleagueHours(row);
       });
+      input.addEventListener("change", function () {
+        updateColleagueHours(row);
+      });
     });
     row.querySelector(".remove-colleague").addEventListener("click", function () {
       row.remove();
@@ -888,13 +1056,54 @@
     node.querySelector(".col-start-time").value = values.startTime || "";
     node.querySelector(".col-end-date").value = values.endDate || "";
     node.querySelector(".col-end-time").value = values.endTime || "";
+    fillLunchPresetSelect(node.querySelector(".col-lunch-preset"));
+    setLunchControls(
+      node.querySelector(".col-lunch-preset"),
+      node.querySelector(".col-lunch-start"),
+      node.querySelector(".col-lunch-end"),
+      node.querySelectorAll(".lunch-custom"),
+      values.lunch || null
+    );
     bindColleagueRow(node);
+    bindLunchFields(
+      node.querySelector(".col-lunch-preset"),
+      node.querySelector(".col-lunch-start"),
+      node.querySelector(".col-lunch-end"),
+      function () {
+        updateColleagueHours(node);
+      }
+    );
     el.colleagueRows.appendChild(node);
+    toggleColleagueBlock();
+  }
+
+  function bindLunchFields(select, startInput, endInput, onChange) {
+    function syncCustom() {
+      const show = select.value === "custom";
+      const row = select.closest(".lunch-fields");
+      if (row) {
+        row.querySelectorAll(".lunch-custom").forEach(function (node) {
+          node.hidden = !show;
+        });
+      }
+      if (onChange) onChange();
+    }
+    select.addEventListener("change", syncCustom);
+    startInput.addEventListener("input", onChange);
+    endInput.addEventListener("input", onChange);
   }
 
   function toggleColleagueBlock() {
-    const isOt = el.recordType.value === "OT";
-    el.colleaguesBlock.hidden = !isOt;
+    const to = isToType();
+    el.lunchWrap.hidden = !to;
+    el.colleaguesHint.textContent = to
+      ? "New rows copy the main start and end. Each person can set a lunch slot to exclude."
+      : "New rows copy the main start and end.";
+    el.colleagueRows.querySelectorAll(".col-lunch-wrap").forEach(function (wrap) {
+      wrap.hidden = !to;
+    });
+    updateMainHours();
+    el.colleagueRows.querySelectorAll(".colleague-row").forEach(updateColleagueHours);
   }
 
   function showRecordEditor(title) {
@@ -916,6 +1125,13 @@
     setDateCombo(el.recordStartDate, el.recordStartPicker, "");
     setDateCombo(el.recordEndDate, el.recordEndPicker, "");
     el.recordFormTitle.textContent = "New application";
+    setLunchControls(
+      el.recordLunchPreset,
+      el.recordLunchStart,
+      el.recordLunchEnd,
+      el.lunchWrap.querySelectorAll(".lunch-custom"),
+      null
+    );
     toggleColleagueBlock();
     updateMainHours();
   }
@@ -930,6 +1146,13 @@
     el.recordEndTime.value = app.endTime;
     el.recordStartDate.dataset.lastStart = app.startDate;
     el.recordReason.value = app.reason;
+    setLunchControls(
+      el.recordLunchPreset,
+      el.recordLunchStart,
+      el.recordLunchEnd,
+      el.lunchWrap.querySelectorAll(".lunch-custom"),
+      app.type === "TO" ? app.lunch : null
+    );
     el.colleagueRows.innerHTML = "";
     (app.colleagues || []).forEach(function (c) {
       addColleagueRow(c);
@@ -1074,7 +1297,13 @@
     }
     const rows = list
       .map(function (app) {
-        const hours = intervalHours(app.startDate, app.startTime, app.endDate, app.endTime);
+        const hours = intervalHours(
+          app.startDate,
+          app.startTime,
+          app.endDate,
+          app.endTime,
+          app.type === "TO" ? app.lunch : null
+        );
         const colNames = (app.colleagues || [])
           .map(function (c) {
             return c.staffName;
@@ -1297,8 +1526,36 @@
       endDate: normalizeDate(el.recordEndDate.value),
       endTime: normalizeTime(el.recordEndTime.value),
       reason: el.recordReason.value.trim(),
-      colleagues: el.recordType.value === "OT" ? collectColleagueRows() : [],
+      lunch: isToType()
+        ? lunchFromControls(el.recordLunchPreset, el.recordLunchStart, el.recordLunchEnd)
+        : null,
+      colleagues: collectColleagueRows(),
     };
+    if (isToType()) {
+      const lunchErr = lunchSelectionError(
+        el.recordLunchPreset,
+        el.recordLunchStart,
+        el.recordLunchEnd,
+        "Main person"
+      );
+      if (lunchErr) {
+        showBanner(lunchErr, "err");
+        return;
+      }
+      const colRows = el.colleagueRows.querySelectorAll(".colleague-row");
+      for (let i = 0; i < colRows.length; i += 1) {
+        const colErr = lunchSelectionError(
+          colRows[i].querySelector(".col-lunch-preset"),
+          colRows[i].querySelector(".col-lunch-start"),
+          colRows[i].querySelector(".col-lunch-end"),
+          "Colleague " + (i + 1)
+        );
+        if (colErr) {
+          showBanner(colErr, "err");
+          return;
+        }
+      }
+    }
     const err = validateApplicationInput(input, isNew, previous);
     if (err) {
       showBanner(err, "err");
@@ -1313,8 +1570,22 @@
       endTime: input.endTime,
       staffName: input.staffName,
       reason: input.reason,
-      colleagues: input.colleagues,
+      lunch: input.type === "TO" ? input.lunch : null,
+      colleagues: input.colleagues.map(function (c) {
+        return {
+          staffName: c.staffName,
+          startDate: c.startDate,
+          startTime: c.startTime,
+          endDate: c.endDate,
+          endTime: c.endTime,
+          lunch: input.type === "TO" ? c.lunch || null : null,
+        };
+      }),
     };
+    if (!record.lunch) delete record.lunch;
+    record.colleagues.forEach(function (c) {
+      if (!c.lunch) delete c.lunch;
+    });
     applicationNames(record).forEach(ensureStaff);
     if (isNew) state.applications.push(record);
     else {
@@ -1581,6 +1852,10 @@
     pageZoom = PAGE_ZOOM_DEFAULT;
     applyPageZoom();
   });
+
+  fillLunchPresetSelect(el.recordLunchPreset);
+  fillLunchPresetSelect(el.colleagueTemplate.content.querySelector(".col-lunch-preset"));
+  bindLunchFields(el.recordLunchPreset, el.recordLunchStart, el.recordLunchEnd, updateMainHours);
 
   showView("records");
   toggleColleagueBlock();

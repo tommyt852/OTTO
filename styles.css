@@ -358,6 +358,13 @@ select {
   min-width: 10rem;
 }
 
+.lunch-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem 0.7rem;
+  margin: 0.7rem 0 0.2rem;
+}
+
 .colleague-top .hours-live {
   margin: 0;
 }
