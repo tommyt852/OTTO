@@ -14,13 +14,12 @@ Do not add screens, storage, or features listed as out of scope in the design.
 
 ## Files
 
-Start with three files. Split JS later only if a file becomes hard to work in.
-
 | File | Role |
 | --- | --- |
 | `index.html` | Markup for the three views, forms, lists, import/export controls |
-| `styles.css` | Layout and appearance |
-| `app.js` | State, validation, hours/report math, UI wiring |
+| `css/styles.css` | Layout and appearance |
+| `js/settings.js` | Configurable values (page size, lunch presets, TO reasons) |
+| `js/app.js` | State, validation, hours/report math, UI wiring |
 
 Open `index.html` in a browser to run. No server required unless the browser blocks file import; if that happens, a static file open or a trivial local static server is enough — still no app backend.
 

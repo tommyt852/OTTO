@@ -7,7 +7,7 @@ The user receives applications by email and types them into OTTO by hand. OTTO d
 ## Constraints
 
 - Pure frontend: HTML, CSS, and JavaScript only. No server, no framework, no build step.
-- Keep HTML lean. Structure in HTML, styles in CSS, behaviour in JS. Do not dump CSS or JS into the markup.
+- Keep HTML lean. Structure in HTML, styles in CSS, behaviour in JS. Configurable values live in `js/settings.js`.
 - One user. No login.
 - No screens beyond the three listed below.
 
@@ -31,7 +31,7 @@ Each application is **one record**, even if it crosses a month or includes colle
 | End date | Yes | Calendar date the period ends (`DD/MM/YYYY`). Defaults to the start date. |
 | End time | Yes | Time the period ends |
 | Staff name | Yes | Main person. Choose from the staff list or type a new name. Must not be a deactivated staff name. |
-| Reason | Yes | Why the OT or TO exists |
+| Reason | Yes | Why the OT or TO exists. On TO, pick from presets in `js/settings.js` (`TO_REASON_PRESETS`) or type a custom reason. |
 
 ### Colleagues
 
@@ -44,7 +44,7 @@ OT and TO may include colleagues:
 - A colleague name must follow the same staff rules as the main name (list or type, not deactivated).
 - Adding or removing colleagues is allowed when creating or editing.
 
-On **TO** only, the main person and each colleague can exclude a **lunch slot**. Presets are defined in `app.js` (`LUNCH_PRESETS`, default `12:45`–`14:00` and `13:00`–`14:00`), or a custom start/end. JSON stores `{ "start": "12:45", "end": "14:00" }` (or omits lunch). Overlap with that window on each calendar day is subtracted from that person’s hours.
+On **TO** only, the main person and each colleague can exclude a **lunch slot**. Presets are defined in `js/settings.js` (`LUNCH_PRESETS`, default `12:45`–`14:00` and `13:00`–`14:00`), or a custom start/end. JSON stores `{ "start": "12:45", "end": "14:00" }` (or omits lunch). Overlap with that window on each calendar day is subtracted from that person’s hours.
 
 The whole application (main person + colleagues) is still **one record**. Delete removes all of it.
 

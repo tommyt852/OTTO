@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OTTO</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <div class="size-bar">
@@ -71,7 +71,7 @@
             <input type="time" id="record-end-time" step="60" required>
           </label>
           <label class="wide">Reason
-            <input type="text" id="record-reason" required>
+            <input type="text" id="record-reason" autocomplete="off" required>
           </label>
         </div>
         <div id="lunch-wrap" class="lunch-fields" hidden>
@@ -187,6 +187,7 @@
   </main>
 
   <datalist id="staff-name-options"></datalist>
+  <datalist id="to-reason-options"></datalist>
 
   <template id="colleague-row-template">
     <div class="colleague-row">
@@ -235,6 +236,7 @@
   </template>
   </div>
 
-  <script src="app.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

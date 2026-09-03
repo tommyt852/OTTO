@@ -1,18 +1,6 @@
 (function () {
   "use strict";
 
-  // Page size on load, in percent (70–200).
-  var PAGE_ZOOM_DEFAULT = 150;
-  var PAGE_ZOOM_MIN = 70;
-  var PAGE_ZOOM_MAX = 200;
-  var PAGE_ZOOM_STEP = 10;
-
-  // Lunch slots offered on TO (plus Custom). Stored as { start, end } in JSON.
-  var LUNCH_PRESETS = [
-    { start: "12:45", end: "14:00" },
-    { start: "13:00", end: "14:00" },
-  ];
-
   const state = {
     applications: [],
     staff: [],
@@ -76,6 +64,7 @@
     importData: document.getElementById("import-data"),
     importDataBtn: document.getElementById("import-data-btn"),
     staffNameOptions: document.getElementById("staff-name-options"),
+    toReasonOptions: document.getElementById("to-reason-options"),
     pageZoomOut: document.getElementById("page-zoom-out"),
     pageZoomIn: document.getElementById("page-zoom-in"),
     pageZoomReset: document.getElementById("page-zoom-reset"),
@@ -1093,9 +1082,21 @@
     endInput.addEventListener("input", onChange);
   }
 
+  function renderToReasonOptions() {
+    el.toReasonOptions.innerHTML = TO_REASON_PRESETS.map(function (text) {
+      return "<option value=\"" + escapeHtml(text) + "\"></option>";
+    }).join("");
+  }
+
+  function toggleReasonList() {
+    if (isToType()) el.recordReason.setAttribute("list", "to-reason-options");
+    else el.recordReason.removeAttribute("list");
+  }
+
   function toggleColleagueBlock() {
     const to = isToType();
     el.lunchWrap.hidden = !to;
+    toggleReasonList();
     el.colleaguesHint.textContent = to
       ? "New rows copy the main start and end. Each person can set a lunch slot to exclude."
       : "New rows copy the main start and end.";
@@ -1855,6 +1856,7 @@
 
   fillLunchPresetSelect(el.recordLunchPreset);
   fillLunchPresetSelect(el.colleagueTemplate.content.querySelector(".col-lunch-preset"));
+  renderToReasonOptions();
   bindLunchFields(el.recordLunchPreset, el.recordLunchStart, el.recordLunchEnd, updateMainHours);
 
   showView("records");
