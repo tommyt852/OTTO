@@ -125,8 +125,20 @@
     s = s.trim();
     if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s.slice(0, 5);
     const match = s.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) return s;
-    return pad2(Number(match[1])) + ":" + pad2(Number(match[2]));
+    if (match) return pad2(Number(match[1])) + ":" + pad2(Number(match[2]));
+    const digits = s.replace(/\D/g, "");
+    if (digits.length === 4) return digits.slice(0, 2) + ":" + digits.slice(2);
+    if (digits.length === 3) return pad2(Number(digits.slice(0, 1))) + ":" + digits.slice(1);
+    return s;
+  }
+
+  function timeDigits(s) {
+    return String(s || "").replace(/\D/g, "").slice(0, 4);
+  }
+
+  function formatTimeTyping(digits) {
+    if (digits.length <= 2) return digits;
+    return digits.slice(0, 2) + ":" + digits.slice(2);
   }
 
   function bindTimeInput(input) {
@@ -153,16 +165,33 @@
       }
     }
     input.addEventListener("input", function () {
-      const raw = input.value;
-      if (!raw.trim()) {
+      const digits = timeDigits(input.value);
+      const next = formatTimeTyping(digits);
+      const caretDigits = timeDigits(input.value.slice(0, input.selectionStart || 0)).length;
+      if (input.value !== next) {
+        input.value = next;
+        let pos = caretDigits;
+        if (pos > 2) pos += 1;
+        input.setSelectionRange(pos, pos);
+      }
+      if (!digits) {
         setTimeError(false);
         return;
       }
-      setTimeError(!isValidTime(normalizeTime(raw)));
+      if (digits.length < 3) {
+        setTimeError(false);
+        return;
+      }
+      setTimeError(!isValidTime(normalizeTime(input.value)));
     });
     input.addEventListener("blur", function () {
       const n = normalizeTime(input.value);
-      if (isValidTime(n)) input.value = n;
+      if (isValidTime(n)) {
+        input.value = n;
+        setTimeError(false);
+      } else if (input.value.trim()) {
+        setTimeError(true);
+      }
     });
   }
 
