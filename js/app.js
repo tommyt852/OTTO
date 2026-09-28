@@ -121,8 +121,25 @@
   }
 
   function normalizeTime(s) {
-    if (typeof s === "string" && /^\d{2}:\d{2}:\d{2}$/.test(s)) return s.slice(0, 5);
-    return s;
+    if (typeof s !== "string") return s;
+    s = s.trim();
+    if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s.slice(0, 5);
+    const match = s.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return s;
+    return pad2(Number(match[1])) + ":" + pad2(Number(match[2]));
+  }
+
+  function bindTimeInput(input) {
+    if (!input || input.dataset.timeBound === "1") return;
+    input.dataset.timeBound = "1";
+    input.setAttribute("placeholder", "HH:mm");
+    input.setAttribute("inputmode", "numeric");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("maxlength", "5");
+    input.addEventListener("blur", function () {
+      const n = normalizeTime(input.value);
+      if (isValidTime(n)) input.value = n;
+    });
   }
 
   function isValidTime(s) {
@@ -1016,6 +1033,7 @@
     bindDateCombo(endInput, endPicker);
     syncPickerFromText(startInput, startPicker);
     syncPickerFromText(endInput, endPicker);
+    row.querySelectorAll(".time-input").forEach(bindTimeInput);
     row.querySelectorAll("input").forEach(function (input) {
       input.addEventListener("input", function () {
         if (input === startInput) defaultEndDate(startInput, endInput, endPicker);
@@ -1651,6 +1669,12 @@
 
   bindDateCombo(el.recordStartDate, el.recordStartPicker);
   bindDateCombo(el.recordEndDate, el.recordEndPicker);
+  [
+    el.recordStartTime,
+    el.recordEndTime,
+    el.recordLunchStart,
+    el.recordLunchEnd
+  ].forEach(bindTimeInput);
   el.recordStartDate.addEventListener("input", function () {
     defaultEndDate(el.recordStartDate, el.recordEndDate, el.recordEndPicker);
     updateMainHours();

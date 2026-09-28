@@ -504,3 +504,8 @@ tbody tr:hover {
     margin-left: 0;
   }
 }
+
+.time-input {
+  min-width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}

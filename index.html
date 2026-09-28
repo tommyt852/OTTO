@@ -59,7 +59,7 @@
             </span>
           </label>
           <label>Start time
-            <input type="time" id="record-start-time" step="60" required>
+            <input type="text" id="record-start-time" class="time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5" required>
           </label>
           <label>End date
             <span class="date-combo">
@@ -68,7 +68,7 @@
             </span>
           </label>
           <label>End time
-            <input type="time" id="record-end-time" step="60" required>
+            <input type="text" id="record-end-time" class="time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5" required>
           </label>
           <label class="wide">Reason
             <input type="text" id="record-reason" autocomplete="off" required>
@@ -82,10 +82,10 @@
             </select>
           </label>
           <label class="lunch-custom" hidden>Lunch start
-            <input type="time" id="record-lunch-start" step="60">
+            <input type="text" id="record-lunch-start" class="time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5">
           </label>
           <label class="lunch-custom" hidden>Lunch end
-            <input type="time" id="record-lunch-end" step="60">
+            <input type="text" id="record-lunch-end" class="time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5">
           </label>
         </div>
         <p class="hours-live">Hours (main): <strong id="record-hours">0.00</strong></p>
@@ -206,10 +206,10 @@
           </select>
         </label>
         <label class="lunch-custom" hidden>Lunch start
-          <input type="time" class="col-lunch-start" step="60">
+          <input type="text" class="col-lunch-start time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5">
         </label>
         <label class="lunch-custom" hidden>Lunch end
-          <input type="time" class="col-lunch-end" step="60">
+          <input type="text" class="col-lunch-end time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5">
         </label>
       </div>
       <div class="colleague-times">
@@ -220,7 +220,7 @@
           </span>
         </label>
         <label>Start time
-          <input type="time" class="col-start-time" step="60">
+          <input type="text" class="col-start-time time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5">
         </label>
         <label>End date
           <span class="date-combo">
@@ -229,7 +229,7 @@
           </span>
         </label>
         <label>End time
-          <input type="time" class="col-end-time" step="60">
+          <input type="text" class="col-end-time time-input" placeholder="HH:mm" inputmode="numeric" autocomplete="off" maxlength="5">
         </label>
       </div>
     </div>
