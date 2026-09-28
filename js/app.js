@@ -1947,7 +1947,7 @@
     const byDay = daySegmentsForMonth(calendarMonth);
     const monthFrom = monthStart(calendarMonth);
     const monthTo = nextMonthStart(calendarMonth);
-    const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     let gridHtml = "<div class=\"cal-weekdays\">";
     weekdayLabels.forEach(function (label) {
@@ -1955,7 +1955,7 @@
     });
     gridHtml += "</div><div class=\"cal-days\">";
 
-    const lead = (monthFrom.getDay() + 6) % 7;
+    const lead = monthFrom.getDay();
     for (let i = 0; i < lead; i += 1) {
       gridHtml += "<div class=\"cal-day cal-day-empty\" aria-hidden=\"true\"></div>";
     }
@@ -1982,7 +1982,7 @@
         "</span>" +
         "</button>";
 
-      const weekday = weekdayLabels[(d.getDay() + 6) % 7];
+      const weekday = weekdayLabels[d.getDay()];
       listHtml +=
         "<button type=\"button\" class=\"cal-list-day" +
         (selected ? " is-selected" : "") +
