@@ -853,6 +853,51 @@
     };
   }
 
+  function buildAllStaffReport(yyyyMm) {
+    const rows = state.staff
+      .filter(function (s) {
+        return s.active;
+      })
+      .map(function (person) {
+        return buildReport(person.name, yyyyMm);
+      })
+      .filter(Boolean);
+    let ot = 0;
+    let to = 0;
+    rows.forEach(function (r) {
+      ot = round2(ot + r.ot);
+      to = round2(to + r.to);
+    });
+    return { month: yyyyMm, rows: rows, ot: ot, to: to };
+  }
+
+  function allStaffReportCsv(report) {
+    const lines = [
+      ["Staff", "Opening", "OT", "TO", "Net", "Closing", "Write-off"].map(csvEscape).join(","),
+    ];
+    report.rows.forEach(function (r) {
+      lines.push(
+        [
+          r.person.name,
+          formatHours(r.opening),
+          formatHours(r.ot),
+          formatHours(r.to),
+          formatHours(round2(r.ot - r.to)),
+          formatHours(r.closing),
+          r.writeOff ? "yes" : "",
+        ]
+          .map(csvEscape)
+          .join(",")
+      );
+    });
+    lines.push(
+      ["TOTAL", "", formatHours(report.ot), formatHours(report.to), formatHours(round2(report.ot - report.to)), "", ""]
+        .map(csvEscape)
+        .join(",")
+    );
+    return lines.join("\n") + "\n";
+  }
+
   function isApplicationShape(app, ids) {
     if (!app || typeof app !== "object") return "Each application must be an object.";
     if (typeof app.id !== "string" || !app.id.trim()) return "Each application needs an id.";
@@ -1012,6 +1057,27 @@
     a.remove();
     URL.revokeObjectURL(url);
   }
+
+  function downloadText(filename, text, mime) {
+    const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function csvEscape(value) {
+    const s = value == null ? "" : String(value);
+    if (/[",\n\r]/.test(s)) return "\"" + s.replace(/"/g, "\"\"") + "\"";
+    return s;
+  }
+
+  const REPORT_ALL_STAFF = "__all__";
+  let lastAllStaffReport = null;
 
   function readJsonFile(file, callback) {
     if (!file) return;
@@ -1557,19 +1623,25 @@
       el.reportStaff.innerHTML = "<option value=\"\">No active staff</option>";
       return;
     }
-    el.reportStaff.innerHTML = active
-      .map(function (s) {
-        return "<option value=\"" + escapeHtml(s.name) + "\">" + escapeHtml(s.name) + "</option>";
-      })
-      .join("");
-    if (active.some(function (s) { return s.name === current; })) {
-      el.reportStaff.value = current;
+    el.reportStaff.innerHTML =
+      "<option value=\"" +
+      REPORT_ALL_STAFF +
+      "\">All staff</option>" +
+      active
+        .map(function (s) {
+          return "<option value=\"" + escapeHtml(s.name) + "\">" + escapeHtml(s.name) + "</option>";
+        })
+        .join("");
+    if (current === REPORT_ALL_STAFF || active.some(function (s) { return s.name === current; })) {
+      el.reportStaff.value = current || REPORT_ALL_STAFF;
+    } else {
+      el.reportStaff.value = REPORT_ALL_STAFF;
     }
   }
 
   function renderReport(report) {
     if (!report) {
-      el.reportResult.innerHTML = "<p class=\"empty\">Choose an active staff member and a month.</p>";
+      el.reportResult.innerHTML = "<p class=\"empty\">Choose All staff or one person, and a month.</p>";
       return;
     }
     const lineRows = report.lines.length
@@ -1636,6 +1708,67 @@
       "</tbody><tfoot><tr class=\"ledger-close\"><td colspan=\"4\">Closing balance</td><td></td><td class=\"num\">" +
       formatHours(report.closing) +
       "</td></tr></tfoot></table></div>";
+    lastAllStaffReport = null;
+  }
+
+  function renderAllStaffReport(report) {
+    lastAllStaffReport = report;
+    if (!report || !report.rows.length) {
+      el.reportResult.innerHTML = "<p class=\"empty\">No active staff for this month.</p>";
+      return;
+    }
+    const body = report.rows
+      .map(function (r) {
+        return (
+          "<tr>" +
+          "<td>" +
+          escapeHtml(r.person.name) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(r.opening) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(r.ot) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(r.to) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(round2(r.ot - r.to)) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(r.closing) +
+          (r.writeOff ? " <span class=\"muted\">(write-off)</span>" : "") +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+    el.reportResult.innerHTML =
+      "<div class=\"report-head\">" +
+      "<p><strong>All staff</strong></p>" +
+      "<p class=\"muted\">" +
+      escapeHtml(report.month) +
+      " · OT +" +
+      formatHours(report.ot) +
+      " · TO −" +
+      formatHours(report.to) +
+      "</p>" +
+      "<p><button type=\"button\" id=\"export-all-staff-csv\">Export CSV</button></p>" +
+      "</div>" +
+      "<div class=\"table-wrap\"><table><thead><tr>" +
+      "<th>Staff</th><th class=\"num\">Opening</th><th class=\"num\">OT</th><th class=\"num\">TO</th>" +
+      "<th class=\"num\">Net</th><th class=\"num\">Closing</th>" +
+      "</tr></thead><tbody>" +
+      body +
+      "</tbody><tfoot><tr>" +
+      "<td>Total</td><td></td><td class=\"num\">" +
+      formatHours(report.ot) +
+      "</td><td class=\"num\">" +
+      formatHours(report.to) +
+      "</td><td class=\"num\">" +
+      formatHours(round2(report.ot - report.to)) +
+      "</td><td></td></tr></tfoot></table></div>";
   }
 
   function refresh() {
@@ -1925,6 +2058,10 @@
       showBanner("Choose a month.", "err");
       return;
     }
+    if (name === REPORT_ALL_STAFF) {
+      renderAllStaffReport(buildAllStaffReport(month));
+      return;
+    }
     const report = buildReport(name, month);
     if (!report) {
       showBanner("Monthly report is only for active staff.", "err");
@@ -1932,6 +2069,17 @@
       return;
     }
     renderReport(report);
+  });
+
+  el.reportResult.addEventListener("click", function (event) {
+    if (event.target.id !== "export-all-staff-csv") return;
+    if (!lastAllStaffReport) return;
+    downloadText(
+      "otto-report-" + lastAllStaffReport.month + "-all-staff.csv",
+      allStaffReportCsv(lastAllStaffReport),
+      "text/csv;charset=utf-8"
+    );
+    showBanner("CSV downloaded.", "ok");
   });
 
   el.importDataBtn.addEventListener("click", function () {
@@ -1967,7 +2115,7 @@
       resetStaffForm();
       hideStaffEditor();
       refresh();
-      el.reportResult.innerHTML = "<p class=\"empty\">Choose an active staff member and a month.</p>";
+      el.reportResult.innerHTML = "<p class=\"empty\">Choose All staff or one person, and a month.</p>";
       showBanner("Data imported.", "ok");
     });
   });
