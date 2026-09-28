@@ -577,8 +577,17 @@ tbody tr:hover {
 }
 
 .cal-layout {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
+  width: 100%;
+}
+
+.cal-layout > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cal-grid {
@@ -705,12 +714,13 @@ tbody tr:hover {
 
 @media (min-width: 1024px) {
   .cal-layout {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
+    display: flex;
+    flex-direction: column;
   }
 
   .cal-grid {
     display: block;
+    width: 100%;
   }
 
   .cal-list {
@@ -719,6 +729,7 @@ tbody tr:hover {
 
   .cal-detail {
     position: static;
+    width: 100%;
   }
 }
 
