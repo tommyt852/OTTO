@@ -576,6 +576,12 @@ tbody tr:hover {
   color: #fff;
 }
 
+#view-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
 .cal-layout {
   display: flex;
   flex-direction: column;
@@ -738,7 +744,7 @@ tbody tr:hover {
     display: none;
   }
 
-  .cal-layout > .cal-detail {
+  #cal-detail {
     display: none;
   }
 
