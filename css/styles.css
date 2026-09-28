@@ -576,7 +576,11 @@ tbody tr:hover {
   color: #fff;
 }
 
-#view-calendar {
+#view-calendar[hidden] {
+  display: none !important;
+}
+
+#view-calendar:not([hidden]) {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
