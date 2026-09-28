@@ -23,6 +23,7 @@
       <button type="button" data-view="records" aria-current="page">Records</button>
       <button type="button" data-view="staff">Staff</button>
       <button type="button" data-view="report">Report</button>
+      <button type="button" data-view="calendar">Calendar</button>
     </nav>
     <div class="file-bar">
       <button type="button" id="import-data-btn">Import data</button>
@@ -187,6 +188,30 @@
         <button type="submit">Show report</button>
       </form>
       <div id="report-result"><p class="empty">Choose All staff or one person, and a month.</p></div>
+    </section>
+
+    <section id="view-calendar" class="view" data-view="calendar" hidden>
+      <div class="view-head">
+        <h2>Calendar</h2>
+      </div>
+      <div class="cal-toolbar">
+        <div class="cal-month-switcher">
+          <button type="button" id="cal-prev" aria-label="Previous month">←</button>
+          <strong id="cal-month-label"></strong>
+          <button type="button" id="cal-next" aria-label="Next month">→</button>
+        </div>
+        <div class="cal-legend" aria-label="Legend">
+          <span class="cal-chip badge-ot">OT</span>
+          <span class="cal-chip badge-to">TO</span>
+        </div>
+      </div>
+      <div class="cal-layout">
+        <div id="cal-grid" class="cal-grid"></div>
+        <div id="cal-list" class="cal-list"></div>
+        <aside id="cal-detail" class="cal-detail">
+          <p class="empty">Select a day.</p>
+        </aside>
+      </div>
     </section>
   </main>
 

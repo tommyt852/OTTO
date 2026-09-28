@@ -8,6 +8,13 @@
 
   let writeOffDraft = [];
 
+  let calendarMonth = (function () {
+    const now = new Date();
+    const m = now.getMonth() + 1;
+    return now.getFullYear() + "-" + (m < 10 ? "0" : "") + m;
+  })();
+  let calendarSelectedDay = null;
+
   const el = {
     banner: document.getElementById("banner"),
     views: document.querySelectorAll(".view"),
@@ -69,6 +76,12 @@
     pageZoomIn: document.getElementById("page-zoom-in"),
     pageZoomReset: document.getElementById("page-zoom-reset"),
     page: document.getElementById("page"),
+    calPrev: document.getElementById("cal-prev"),
+    calNext: document.getElementById("cal-next"),
+    calMonthLabel: document.getElementById("cal-month-label"),
+    calGrid: document.getElementById("cal-grid"),
+    calList: document.getElementById("cal-list"),
+    calDetail: document.getElementById("cal-detail"),
   };
 
   function round2(n) {
@@ -739,6 +752,83 @@
       return a.start.getTime() - b.start.getTime();
     });
     return { ot: ot, to: to, lines: lines };
+  }
+
+  function dayStartOf(dt) {
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
+  }
+
+  function nextDayStartOf(dt) {
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + 1, 0, 0, 0, 0);
+  }
+
+  function toDayKey(dt) {
+    return dt.getFullYear() + "-" + pad2(dt.getMonth() + 1) + "-" + pad2(dt.getDate());
+  }
+
+  function shiftMonth(yyyyMm, delta) {
+    const y = Number(yyyyMm.slice(0, 4));
+    const m = Number(yyyyMm.slice(5, 7));
+    return toMonthKey(new Date(y, m - 1 + delta, 1));
+  }
+
+  function formatMonthLabel(yyyyMm) {
+    const dt = monthStart(yyyyMm);
+    return dt.toLocaleString("en-GB", { month: "long", year: "numeric" });
+  }
+
+  function formatHoursShort(n) {
+    return formatHours(n).replace(/\.?0+$/, "") + "h";
+  }
+
+  function daySegmentsForMonth(yyyyMm) {
+    const monthFrom = monthStart(yyyyMm);
+    const monthTo = nextMonthStart(yyyyMm);
+    const byDay = {};
+    state.applications.forEach(function (app) {
+      applicationNames(app).forEach(function (personName) {
+        personIntervals(app, personName).forEach(function (iv) {
+          const start = parseDateTime(iv.startDate, iv.startTime);
+          const end = parseDateTime(iv.endDate, iv.endTime);
+          let cursor = dayStartOf(start);
+          if (cursor < monthFrom) cursor = new Date(monthFrom.getTime());
+          while (cursor < monthTo && cursor < end) {
+            const boundEnd = nextDayStartOf(cursor);
+            const clip = clipIntervalToRange(
+              iv.startDate,
+              iv.startTime,
+              iv.endDate,
+              iv.endTime,
+              cursor,
+              boundEnd,
+              iv.lunch
+            );
+            if (clip && clip.hours > 0) {
+              const key = toDayKey(cursor);
+              if (!byDay[key]) byDay[key] = [];
+              byDay[key].push({
+                person: personName,
+                type: iv.type,
+                start: clip.start,
+                end: clip.end,
+                hours: clip.hours,
+                reason: iv.reason,
+                applicationId: iv.applicationId,
+              });
+            }
+            cursor = boundEnd;
+          }
+        });
+      });
+    });
+    Object.keys(byDay).forEach(function (key) {
+      byDay[key].sort(function (a, b) {
+        const t = a.start.getTime() - b.start.getTime();
+        if (t !== 0) return t;
+        return a.person.localeCompare(b.person);
+      });
+    });
+    return byDay;
   }
 
   function monthsTouched(personName, writeOffMonths) {
@@ -1771,11 +1861,178 @@
       "</td><td></td></tr></tfoot></table></div>";
   }
 
+  function calChipHtml(seg) {
+    const badgeClass = seg.type === "OT" ? "badge-ot" : "badge-to";
+    return (
+      "<span class=\"cal-chip " +
+      badgeClass +
+      "\" title=\"" +
+      escapeHtml(seg.person) +
+      "\">" +
+      escapeHtml(seg.type) +
+      " " +
+      escapeHtml(formatHoursShort(seg.hours)) +
+      "</span>"
+    );
+  }
+
+  function renderCalDetail(dayKey, segments) {
+    if (!dayKey) {
+      el.calDetail.innerHTML = "<p class=\"empty\">Select a day.</p>";
+      return;
+    }
+    const parts = dayKey.split("-");
+    const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const heading =
+      dt.toLocaleString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    const list = segments || [];
+    if (!list.length) {
+      el.calDetail.innerHTML =
+        "<h3 class=\"cal-detail-title\">" +
+        escapeHtml(heading) +
+        "</h3><p class=\"empty\">No OT or TO on this day.</p>";
+      return;
+    }
+    const rows = list
+      .map(function (seg) {
+        const badgeClass = seg.type === "OT" ? "badge-ot" : "badge-to";
+        const timeLabel = formatTime(seg.start) + " – " + formatTime(seg.end);
+        return (
+          "<tr>" +
+          "<td>" +
+          escapeHtml(seg.person) +
+          "</td>" +
+          "<td><span class=\"badge " +
+          badgeClass +
+          "\">" +
+          escapeHtml(seg.type) +
+          "</span></td>" +
+          "<td class=\"period\">" +
+          escapeHtml(timeLabel) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(seg.hours) +
+          "</td>" +
+          "<td>" +
+          escapeHtml(seg.reason) +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+    el.calDetail.innerHTML =
+      "<h3 class=\"cal-detail-title\">" +
+      escapeHtml(heading) +
+      "</h3>" +
+      "<div class=\"table-wrap\"><table><thead><tr>" +
+      "<th>Person</th><th>Type</th><th>Time</th><th class=\"num\">Hours</th><th>Reason</th>" +
+      "</tr></thead><tbody>" +
+      rows +
+      "</tbody></table></div>";
+  }
+
+  function renderCalendar() {
+    if (!isValidMonth(calendarMonth)) {
+      calendarMonth = toMonthKey(new Date());
+    }
+    if (calendarSelectedDay && calendarSelectedDay.slice(0, 7) !== calendarMonth) {
+      calendarSelectedDay = null;
+    }
+    el.calMonthLabel.textContent = formatMonthLabel(calendarMonth);
+    const byDay = daySegmentsForMonth(calendarMonth);
+    const monthFrom = monthStart(calendarMonth);
+    const monthTo = nextMonthStart(calendarMonth);
+    const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    let gridHtml = "<div class=\"cal-weekdays\">";
+    weekdayLabels.forEach(function (label) {
+      gridHtml += "<div class=\"cal-weekday\">" + label + "</div>";
+    });
+    gridHtml += "</div><div class=\"cal-days\">";
+
+    const lead = (monthFrom.getDay() + 6) % 7;
+    for (let i = 0; i < lead; i += 1) {
+      gridHtml += "<div class=\"cal-day cal-day-empty\" aria-hidden=\"true\"></div>";
+    }
+
+    let listHtml = "";
+    for (let d = new Date(monthFrom.getTime()); d < monthTo; d.setDate(d.getDate() + 1)) {
+      const key = toDayKey(d);
+      const segs = byDay[key] || [];
+      const selected = calendarSelectedDay === key;
+      const chips = segs.map(calChipHtml).join("");
+      const dayNum = d.getDate();
+      gridHtml +=
+        "<button type=\"button\" class=\"cal-day" +
+        (selected ? " is-selected" : "") +
+        (segs.length ? " has-entries" : "") +
+        "\" data-cal-day=\"" +
+        escapeHtml(key) +
+        "\">" +
+        "<span class=\"cal-day-num\">" +
+        dayNum +
+        "</span>" +
+        "<span class=\"cal-day-chips\">" +
+        chips +
+        "</span>" +
+        "</button>";
+
+      const weekday = weekdayLabels[(d.getDay() + 6) % 7];
+      listHtml +=
+        "<button type=\"button\" class=\"cal-list-day" +
+        (selected ? " is-selected" : "") +
+        "\" data-cal-day=\"" +
+        escapeHtml(key) +
+        "\">" +
+        "<div class=\"cal-list-head\">" +
+        "<strong>" +
+        dayNum +
+        "</strong>" +
+        "<span class=\"muted\">" +
+        weekday +
+        "</span>" +
+        "</div>" +
+        "<div class=\"cal-day-chips\">" +
+        (chips || "<span class=\"muted\">—</span>") +
+        "</div>" +
+        "</button>";
+      if (selected) {
+        listHtml += "<div class=\"cal-list-detail\" id=\"cal-list-detail-slot\"></div>";
+      }
+    }
+    gridHtml += "</div>";
+    el.calGrid.innerHTML = gridHtml;
+    el.calList.innerHTML = listHtml || "<p class=\"empty\">No days in this month.</p>";
+
+    const selectedSegs = calendarSelectedDay ? byDay[calendarSelectedDay] || [] : null;
+    renderCalDetail(calendarSelectedDay, selectedSegs);
+
+    const listDetail = document.getElementById("cal-list-detail-slot");
+    if (listDetail && calendarSelectedDay) {
+      listDetail.innerHTML = el.calDetail.innerHTML;
+    }
+  }
+
+  function selectCalendarDay(dayKey) {
+    if (calendarSelectedDay === dayKey) {
+      calendarSelectedDay = null;
+    } else {
+      calendarSelectedDay = dayKey;
+    }
+    renderCalendar();
+  }
+
   function refresh() {
     renderRecords();
     renderStaff();
     renderStaffOptions();
     renderReportStaffOptions();
+    renderCalendar();
   }
 
   function saveRecord(event) {
@@ -1914,8 +2171,27 @@
   el.navButtons.forEach(function (btn) {
     btn.addEventListener("click", function () {
       showView(btn.dataset.view);
+      if (btn.dataset.view === "calendar") renderCalendar();
     });
   });
+
+  el.calPrev.addEventListener("click", function () {
+    calendarMonth = shiftMonth(calendarMonth, -1);
+    calendarSelectedDay = null;
+    renderCalendar();
+  });
+  el.calNext.addEventListener("click", function () {
+    calendarMonth = shiftMonth(calendarMonth, 1);
+    calendarSelectedDay = null;
+    renderCalendar();
+  });
+  function onCalDayClick(event) {
+    const btn = event.target.closest("[data-cal-day]");
+    if (!btn) return;
+    selectCalendarDay(btn.getAttribute("data-cal-day"));
+  }
+  el.calGrid.addEventListener("click", onCalDayClick);
+  el.calList.addEventListener("click", onCalDayClick);
 
   bindDateCombo(el.recordStartDate, el.recordStartPicker);
   bindDateCombo(el.recordEndDate, el.recordEndPicker);
