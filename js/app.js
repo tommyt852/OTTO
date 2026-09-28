@@ -363,11 +363,9 @@
     return netHours(start, end, lunch);
   }
 
-  function clipIntervalToMonth(date1, time1, date2, time2, yyyyMm, lunch) {
+  function clipIntervalToRange(date1, time1, date2, time2, fromBound, toBound, lunch) {
     const start = parseDateTime(date1, time1);
     const end = parseDateTime(date2, time2);
-    const fromBound = monthStart(yyyyMm);
-    const toBound = nextMonthStart(yyyyMm);
     const from = start > fromBound ? start : fromBound;
     const to = end < toBound ? end : toBound;
     if (to <= from) return null;
@@ -378,6 +376,18 @@
       end: to,
       hours: hours,
     };
+  }
+
+  function clipIntervalToMonth(date1, time1, date2, time2, yyyyMm, lunch) {
+    return clipIntervalToRange(
+      date1,
+      time1,
+      date2,
+      time2,
+      monthStart(yyyyMm),
+      nextMonthStart(yyyyMm),
+      lunch
+    );
   }
 
   function findStaff(name) {
@@ -733,6 +743,50 @@
       if (person.writeOffMonths.indexOf(m) !== -1) bal = 0;
     }
     return bal;
+  }
+
+  function personHoursInRange(personName, fromBound, toBound) {
+    let ot = 0;
+    let to = 0;
+    state.applications.forEach(function (app) {
+      personIntervals(app, personName).forEach(function (iv) {
+        const clip = clipIntervalToRange(
+          iv.startDate,
+          iv.startTime,
+          iv.endDate,
+          iv.endTime,
+          fromBound,
+          toBound,
+          iv.lunch
+        );
+        if (!clip || clip.hours === 0) return;
+        if (iv.type === "OT") ot = round2(ot + clip.hours);
+        else to = round2(to + clip.hours);
+      });
+    });
+    return { ot: ot, to: to };
+  }
+
+  /** Balance as at end of today (inclusive through 23:59:59.999). No current-month write-off. */
+  function balanceAsAtToday(person) {
+    const now = new Date();
+    const yyyyMm = toMonthKey(now);
+    const opening = openingForMonth(person, yyyyMm);
+    const fromBound = monthStart(yyyyMm);
+    // Exclusive upper bound = start of tomorrow (= after end of today 23:59:59.999)
+    const toBound = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const slice = personHoursInRange(person.name, fromBound, toBound);
+    return round2(opening + slice.ot - slice.to);
+  }
+
+  /** Balance as at end of current month (includes future days already entered). Write-off → 0. */
+  function balanceAsAtMonthEnd(person) {
+    const now = new Date();
+    const yyyyMm = toMonthKey(now);
+    if (person.writeOffMonths.indexOf(yyyyMm) !== -1) return 0;
+    const opening = openingForMonth(person, yyyyMm);
+    const slice = personMonthHours(person.name, yyyyMm);
+    return round2(opening + slice.ot - slice.to);
   }
 
   function buildReport(personName, yyyyMm) {
@@ -1424,6 +1478,8 @@
       .map(function (s) {
         const months = s.writeOffMonths.length ? s.writeOffMonths.join(", ") : "—";
         const status = s.active ? "Active" : "Deactivated";
+        const asToday = balanceAsAtToday(s);
+        const asMonthEnd = balanceAsAtMonthEnd(s);
         return (
           "<tr>" +
           "<td>" +
@@ -1431,6 +1487,12 @@
           "</td>" +
           "<td class=\"num\">" +
           formatHours(s.openingBalance) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(asToday) +
+          "</td>" +
+          "<td class=\"num\">" +
+          formatHours(asMonthEnd) +
           "</td>" +
           "<td>" +
           escapeHtml(months) +
@@ -1449,7 +1511,9 @@
       .join("");
     el.staffList.innerHTML =
       "<div class=\"table-wrap\"><table><thead><tr>" +
-      "<th>Name</th><th class=\"num\">Opening</th><th>Write-off months</th><th>Status</th><th></th>" +
+      "<th>Name</th><th class=\"num\">Opening</th>" +
+      "<th class=\"num\">As at today</th><th class=\"num\">As at month end</th>" +
+      "<th>Write-off months</th><th>Status</th><th></th>" +
       "</tr></thead><tbody>" +
       rows +
       "</tbody></table></div>";
