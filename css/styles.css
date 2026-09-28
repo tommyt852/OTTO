@@ -736,3 +736,13 @@ tbody tr:hover {
     font-size: 0.95rem;
   }
 }
+
+.report-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.report-person {
+  min-width: 0;
+}

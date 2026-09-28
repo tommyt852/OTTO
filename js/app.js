@@ -963,28 +963,39 @@
 
   function allStaffReportCsv(report) {
     const lines = [
-      ["Staff", "Opening", "OT", "TO", "Net", "Closing", "Write-off"].map(csvEscape).join(","),
+      ["Staff", "Type", "Start", "End", "Reason", "Hours", "Sub-balance"].map(csvEscape).join(","),
     ];
-    report.rows.forEach(function (r) {
+    report.rows.forEach(function (r, index) {
+      if (index > 0) lines.push("");
+      const name = r.person.name;
       lines.push(
-        [
-          r.person.name,
-          formatHours(r.opening),
-          formatHours(r.ot),
-          formatHours(r.to),
-          formatHours(round2(r.ot - r.to)),
-          formatHours(r.closing),
-          r.writeOff ? "yes" : "",
-        ]
-          .map(csvEscape)
-          .join(",")
+        [name, "Opening", "", "", "", "", formatHours(r.opening)].map(csvEscape).join(",")
+      );
+      r.lines.forEach(function (line) {
+        const sign = line.type === "OT" ? "+" : "-";
+        lines.push(
+          [
+            name,
+            line.type,
+            formatDate(line.start) + " " + formatTime(line.start),
+            formatDate(line.end) + " " + formatTime(line.end),
+            line.reason,
+            sign + formatHours(line.hours),
+            formatHours(line.subBalance),
+          ]
+            .map(csvEscape)
+            .join(",")
+        );
+      });
+      if (r.writeOff) {
+        lines.push(
+          [name, "Write-off", "", "", "balance cleared", "", formatHours(r.closing)].map(csvEscape).join(",")
+        );
+      }
+      lines.push(
+        [name, "Closing", "", "", "", "", formatHours(r.closing)].map(csvEscape).join(",")
       );
     });
-    lines.push(
-      ["TOTAL", "", formatHours(report.ot), formatHours(report.to), formatHours(round2(report.ot - report.to)), "", ""]
-        .map(csvEscape)
-        .join(",")
-    );
     return lines.join("\n") + "\n";
   }
 
@@ -1729,11 +1740,7 @@
     }
   }
 
-  function renderReport(report) {
-    if (!report) {
-      el.reportResult.innerHTML = "<p class=\"empty\">Choose All staff or one person, and a month.</p>";
-      return;
-    }
+  function reportLedgerHtml(report) {
     const lineRows = report.lines.length
       ? report.lines
           .map(function (line) {
@@ -1774,7 +1781,8 @@
         "</td></tr>"
       : "";
 
-    el.reportResult.innerHTML =
+    return (
+      "<section class=\"report-person\">" +
       "<div class=\"report-head\">" +
       "<p><strong>" +
       escapeHtml(report.person.name) +
@@ -1797,7 +1805,17 @@
       writeOffRow +
       "</tbody><tfoot><tr class=\"ledger-close\"><td colspan=\"4\">Closing balance</td><td></td><td class=\"num\">" +
       formatHours(report.closing) +
-      "</td></tr></tfoot></table></div>";
+      "</td></tr></tfoot></table></div>" +
+      "</section>"
+    );
+  }
+
+  function renderReport(report) {
+    if (!report) {
+      el.reportResult.innerHTML = "<p class=\"empty\">Choose All staff or one person, and a month.</p>";
+      return;
+    }
+    el.reportResult.innerHTML = reportLedgerHtml(report);
     lastAllStaffReport = null;
   }
 
@@ -1807,33 +1825,6 @@
       el.reportResult.innerHTML = "<p class=\"empty\">No active staff for this month.</p>";
       return;
     }
-    const body = report.rows
-      .map(function (r) {
-        return (
-          "<tr>" +
-          "<td>" +
-          escapeHtml(r.person.name) +
-          "</td>" +
-          "<td class=\"num\">" +
-          formatHours(r.opening) +
-          "</td>" +
-          "<td class=\"num\">" +
-          formatHours(r.ot) +
-          "</td>" +
-          "<td class=\"num\">" +
-          formatHours(r.to) +
-          "</td>" +
-          "<td class=\"num\">" +
-          formatHours(round2(r.ot - r.to)) +
-          "</td>" +
-          "<td class=\"num\">" +
-          formatHours(r.closing) +
-          (r.writeOff ? " <span class=\"muted\">(write-off)</span>" : "") +
-          "</td>" +
-          "</tr>"
-        );
-      })
-      .join("");
     el.reportResult.innerHTML =
       "<div class=\"report-head\">" +
       "<p><strong>All staff</strong></p>" +
@@ -1846,19 +1837,9 @@
       "</p>" +
       "<p><button type=\"button\" id=\"export-all-staff-csv\">Export CSV</button></p>" +
       "</div>" +
-      "<div class=\"table-wrap\"><table><thead><tr>" +
-      "<th>Staff</th><th class=\"num\">Opening</th><th class=\"num\">OT</th><th class=\"num\">TO</th>" +
-      "<th class=\"num\">Net</th><th class=\"num\">Closing</th>" +
-      "</tr></thead><tbody>" +
-      body +
-      "</tbody><tfoot><tr>" +
-      "<td>Total</td><td></td><td class=\"num\">" +
-      formatHours(report.ot) +
-      "</td><td class=\"num\">" +
-      formatHours(report.to) +
-      "</td><td class=\"num\">" +
-      formatHours(round2(report.ot - report.to)) +
-      "</td><td></td></tr></tfoot></table></div>";
+      "<div class=\"report-stack\">" +
+      report.rows.map(reportLedgerHtml).join("") +
+      "</div>";
   }
 
   function calChipHtml(seg) {
