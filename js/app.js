@@ -132,10 +132,34 @@
   function bindTimeInput(input) {
     if (!input || input.dataset.timeBound === "1") return;
     input.dataset.timeBound = "1";
-    input.setAttribute("placeholder", "HH:mm");
+    input.setAttribute("placeholder", "09:30");
     input.setAttribute("inputmode", "numeric");
     input.setAttribute("autocomplete", "off");
     input.setAttribute("maxlength", "5");
+    let err = input.nextElementSibling;
+    if (!err || !err.classList || !err.classList.contains("field-error")) {
+      err = document.createElement("span");
+      err.className = "field-error";
+      err.hidden = true;
+      input.insertAdjacentElement("afterend", err);
+    }
+    function setTimeError(show) {
+      if (show) {
+        err.textContent = "用 24 小時，例如 09:30";
+        err.hidden = false;
+      } else {
+        err.textContent = "";
+        err.hidden = true;
+      }
+    }
+    input.addEventListener("input", function () {
+      const raw = input.value;
+      if (!raw.trim()) {
+        setTimeError(false);
+        return;
+      }
+      setTimeError(!isValidTime(normalizeTime(raw)));
+    });
     input.addEventListener("blur", function () {
       const n = normalizeTime(input.value);
       if (isValidTime(n)) input.value = n;

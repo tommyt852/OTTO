@@ -509,3 +509,16 @@ tbody tr:hover {
   min-width: 5.5rem;
   font-variant-numeric: tabular-nums;
 }
+
+.field-error {
+  display: block;
+  color: var(--danger);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  margin-top: 0.05rem;
+}
+
+.field-error[hidden] {
+  display: none;
+}
+
